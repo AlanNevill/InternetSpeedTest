@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "InternetSpeedTest": {
+      "commandName": "Project",
+      "commandLineArgs": "1GB"
+    }
+  }
+}
