@@ -14,6 +14,7 @@ using Microsoft.Extensions.Hosting;
 using System.Diagnostics;
 using InternetSpeedTest.DataModels;
 using System.Text.Json;
+using System.Reflection;
 
 namespace InternetSpeedTest;
 
@@ -27,7 +28,7 @@ internal static class InternetSpeedTestLib
     internal static void BuildConfig()
     {
         var config = new ConfigurationBuilder()
-            .SetBasePath(Directory.GetCurrentDirectory())
+            .SetBasePath(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location))
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"}.json", optional: true)
             .AddEnvironmentVariables()
@@ -60,15 +61,15 @@ internal static class InternetSpeedTestLib
         Serilog.Log.Information(new String('-', 50));
     }
 
-    internal static string SpeedTest(string strCommand, string strCommandParameters, string strWorkingDirectory)
+    internal static string SpeedTest(string strCommand, string strCommandParameters)
     {
         string? strOutput, strError;
 
         Log.Information($"""
             InternetSpeedTestLib/SpeedTest starting:
-                strCommand: {strCommand}
+                strCommand:           {strCommand}
                 strCommandParameters: {strCommandParameters}
-                strWorkingDirectory: {strWorkingDirectory}
+                Path.GetDirectoryName(Assembly.GetEntryAssembly().Location): {Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)}
             """);
 
         //Create process
@@ -87,7 +88,7 @@ internal static class InternetSpeedTestLib
         pProcess.StartInfo.RedirectStandardError = true;
 
         //Optional
-        pProcess.StartInfo.WorkingDirectory = strWorkingDirectory;
+        pProcess.StartInfo.WorkingDirectory = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
 
         // eliminate the process window
         pProcess.StartInfo.CreateNoWindow = true;
