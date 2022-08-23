@@ -20,7 +20,7 @@ namespace InternetSpeedTest;
 
 internal static class InternetSpeedTestLib
 {
-    private static string _cnStr = string.Empty;
+    public static string _cnStr = string.Empty;
 
     /// <summary>
     /// Build the configuration and logger
@@ -35,19 +35,8 @@ internal static class InternetSpeedTestLib
             .AddUserSecrets<Program>()
             .Build();
 
-        _cnStr = config.GetConnectionString("myTest");
-
-        // dependency injection
-        //var host = Host.CreateDefaultBuilder()
-        //    .ConfigureServices((context, services) =>
-        //    {
-        //        services.AddDbContext<Finance_TestContext>(options =>
-        //        {
-        //            options.UseSqlServer(_cnStr);
-        //        });
-        //    })
-        //    .UseSerilog()
-        //    .Build();
+        // get the database connection string from the appsettings.json file
+        _cnStr = Environment.GetEnvironmentVariable("COMPUTERNAME") == "SNOWBALL" ? config.GetConnectionString("connSnowball") : config.GetConnectionString("connWillbot");
 
         // serilog configuration
         Log.Logger = new LoggerConfiguration()
@@ -55,9 +44,8 @@ internal static class InternetSpeedTestLib
             .CreateLogger();
 
         // Ensure the log prominently shows the database and server being used
-        //var CnStr = new SqlConnectionStringBuilder(_cnStr);
         Serilog.Log.Information(new String('-', 50));
-        Serilog.Log.Information($"InternetSpeedTest starting using DATABASE: {_cnStr}");
+        Serilog.Log.Information($"InternetSpeedTest starting using: {_cnStr}");
         Serilog.Log.Information(new String('-', 50));
     }
 
@@ -67,8 +55,8 @@ internal static class InternetSpeedTestLib
 
         Log.Information($"""
             InternetSpeedTestLib/SpeedTest starting:
-                strCommand:           {strCommand}
-                strCommandParameters: {strCommandParameters}
+                strCommand:                                                  {strCommand}
+                strCommandParameters:                                        {strCommandParameters}
                 Path.GetDirectoryName(Assembly.GetEntryAssembly().Location): {Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)}
             """);
 
@@ -88,7 +76,7 @@ internal static class InternetSpeedTestLib
         pProcess.StartInfo.RedirectStandardError = true;
 
         //Optional
-        pProcess.StartInfo.WorkingDirectory = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
+        //pProcess.StartInfo.WorkingDirectory = Path.GetDirectoryName(Assembly.GetEntryAssembly().Location);
 
         // eliminate the process window
         pProcess.StartInfo.CreateNoWindow = true;
@@ -113,12 +101,12 @@ internal static class InternetSpeedTestLib
         }
 
         // check exit code
-        if (pProcess.ExitCode == 0)
+        if (pProcess.ExitCode == 0) // success
         {
             Log.Information(strOutput);
             ProcessResult(strOutput);
         }
-        else
+        else    // error
         {
             Log.Error($"InternetSpeedTestLib/SpeedTest pProcess.ExitCode: {pProcess.ExitCode}");
 
@@ -144,15 +132,34 @@ internal static class InternetSpeedTestLib
 
         Log.Information($"""
             InternetSpeedTestLib/ProcessResult:
-                myDeserializedClass.Result.Id:              {myDeserializedClass.Result.Id}
+                myDeserializedClass.Result.Url:             {myDeserializedClass!.Result.Url}
                 myDeserializedClass.Timestamp:              {myDeserializedClass.Timestamp}
                 myDeserializedClass.Ping.Jitter:            {myDeserializedClass.Ping.Jitter}
-                myDeserializedClass.Ping.Low:               {myDeserializedClass.Ping.Low}
+                myDeserializedClass.Ping.Jitter:            {myDeserializedClass.Ping.Jitter}
+                myDeserializedClass.Ping.Latency:           {myDeserializedClass.Ping.Latency}
                 myDeserializedClass.Ping.High:              {myDeserializedClass.Ping.High}
                 myDeserializedClass.Download.Bandwidth:     {myDeserializedClass.Download.Bandwidth}
                 myDeserializedClass.Upload.Bandwidth:       {myDeserializedClass.Upload.Bandwidth}
             """);
 
+
+        using (var context = new PopsContext())
+        {
+            InternetSpeed internetSpeed = new ()
+            {
+                ResultUrl           = myDeserializedClass.Result.Url,
+                DownLoadBandwidth   = myDeserializedClass.Download.Bandwidth,
+                UploadBandWidth     = myDeserializedClass.Upload.Bandwidth,
+                ResultDateTime      = myDeserializedClass.Timestamp,
+                PingJitter          = myDeserializedClass.Ping.Jitter,
+                PingLatency         = myDeserializedClass.Ping.Latency,
+                PingHigh            = myDeserializedClass.Ping.High,
+                PingLow             = myDeserializedClass.Ping.Low,
+                ResultJson          = strOutput
+            };
+            context.InternetSpeed.Add(internetSpeed);
+            context.SaveChanges();
+        }
     }
 }
 

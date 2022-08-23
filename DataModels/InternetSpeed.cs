@@ -13,21 +13,21 @@ public partial class InternetSpeed
 
     public DateTime? ResultDateTime { get; set; }
 
-    [StringLength(50)]
+    [StringLength(2048)]
     [Unicode(false)]
-    public string? Result { get; set; }
+    public string? ResultUrl { get; set; }
 
-    [Column(TypeName = "decimal(9, 3)")]
-    public decimal? PingJitter { get; set; }
+    [Column(TypeName = "real")]
+    public double? PingJitter { get; set; }
 
-    [Column(TypeName = "decimal(9, 3)")]
-    public decimal? PingLatency { get; set; }
+    [Column(TypeName = "real)")]
+    public double? PingLatency { get; set; }
 
-    [Column(TypeName = "decimal(9, 3)")]
-    public decimal? PingLow { get; set; }
+    [Column(TypeName = "real")]
+    public double? PingLow { get; set; }
 
-    [Column(TypeName = "decimal(9, 3)")]
-    public decimal? PingHigh { get; set; }
+    [Column(TypeName = "real")]
+    public double? PingHigh { get; set; }
 
     public int? DownLoadBandwidth { get; set; }
 

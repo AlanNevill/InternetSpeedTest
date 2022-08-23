@@ -49,13 +49,12 @@ class Program
                     break;
 
                 default:
-                    _ = InternetSpeedTestLib.SpeedTest("speedtest.exe", "--format=json-pretty");
                     break;
             }
         }
 
 
-        _ = InternetSpeedTestLib.SpeedTest("speedtest.exe", "--format=json-pretty");
+        _ = InternetSpeedTestLib.SpeedTest("speedtest.exe", "--format=json");
 
         //    logMess = $"{DateTime.Now}, Speed test start, estimated {mess}, Using {testFile}";
         //    Console.WriteLine(logMess);
