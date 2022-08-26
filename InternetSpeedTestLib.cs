@@ -44,20 +44,26 @@ internal static class InternetSpeedTestLib
             .CreateLogger();
 
         // Ensure the log prominently shows the database and server being used
-        Serilog.Log.Information(new String('-', 50));
-        Serilog.Log.Information($"InternetSpeedTest starting using: {_cnStr}");
-        Serilog.Log.Information(new String('-', 50));
+        Log.Information($"""
+
+        {new String('-', 130)}
+                                InternetSpeedTest v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}
+                                Using: { _cnStr}
+        {new String('-', 130)}
+        """);
     }
+
 
     internal static string SpeedTest(string strCommand, string strCommandParameters)
     {
         string? strOutput, strError;
 
         Log.Information($"""
-            InternetSpeedTestLib/SpeedTest starting:
+            InternetSpeedTestLib/SpeedTest paramters:
                 strCommand:                                                  {strCommand}
                 strCommandParameters:                                        {strCommandParameters}
                 Path.GetDirectoryName(Assembly.GetEntryAssembly().Location): {Path.GetDirectoryName(Assembly.GetEntryAssembly().Location)}
+
             """);
 
         //Create process
@@ -132,14 +138,16 @@ internal static class InternetSpeedTestLib
 
         Log.Information($"""
             InternetSpeedTestLib/ProcessResult:
-                myDeserializedClass.Result.Url:             {myDeserializedClass!.Result.Url}
-                myDeserializedClass.Timestamp:              {myDeserializedClass.Timestamp}
-                myDeserializedClass.Ping.Jitter:            {myDeserializedClass.Ping.Jitter}
-                myDeserializedClass.Ping.Jitter:            {myDeserializedClass.Ping.Jitter}
-                myDeserializedClass.Ping.Latency:           {myDeserializedClass.Ping.Latency}
-                myDeserializedClass.Ping.High:              {myDeserializedClass.Ping.High}
-                myDeserializedClass.Download.Bandwidth:     {myDeserializedClass.Download.Bandwidth}
-                myDeserializedClass.Upload.Bandwidth:       {myDeserializedClass.Upload.Bandwidth}
+                myDeserializedClass.Result.Url:                 {myDeserializedClass!.Result.Url}
+                myDeserializedClass.Timestamp:                  {myDeserializedClass.Timestamp.ToLocalTime()}
+                myDeserializedClass.Ping.Jitter:                {myDeserializedClass.Ping.Jitter}
+                myDeserializedClass.Ping.Latency:               {myDeserializedClass.Ping.Latency}
+                myDeserializedClass.Ping.High:                  {myDeserializedClass.Ping.High}
+                myDeserializedClass.Ping.Low:                   {myDeserializedClass.Ping.Low}
+                myDeserializedClass.Download.Bandwidth (bytes): {myDeserializedClass.Download.Bandwidth}
+                myDeserializedClass.Upload.Bandwidth (bytes):   {myDeserializedClass.Upload.Bandwidth}
+                {new String('=', 130)}
+
             """);
 
 
@@ -150,7 +158,7 @@ internal static class InternetSpeedTestLib
                 ResultUrl           = myDeserializedClass.Result.Url,
                 DownLoadBandwidth   = myDeserializedClass.Download.Bandwidth,
                 UploadBandWidth     = myDeserializedClass.Upload.Bandwidth,
-                ResultDateTime      = myDeserializedClass.Timestamp,
+                ResultDateTime      = myDeserializedClass.Timestamp.ToLocalTime(),
                 PingJitter          = myDeserializedClass.Ping.Jitter,
                 PingLatency         = myDeserializedClass.Ping.Latency,
                 PingHigh            = myDeserializedClass.Ping.High,

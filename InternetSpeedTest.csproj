@@ -7,6 +7,8 @@
   	  <LangVersion>preview</LangVersion>
 	  <Nullable>enable</Nullable>
 	  <UserSecretsId>1f54cc93-004f-43fb-9dfc-409b936b5788</UserSecretsId>
+	  <AssemblyVersion>7.0.0.0823</AssemblyVersion>
+	  <FileVersion>14.0.0.0826</FileVersion>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
