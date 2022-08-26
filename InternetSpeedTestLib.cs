@@ -47,8 +47,9 @@ internal static class InternetSpeedTestLib
         Log.Information($"""
 
         {new String('-', 130)}
-                                InternetSpeedTest v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}
-                                Using: { _cnStr}
+                                InternetSpeedTest: v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}
+                                COMPUTERNAME:      {Environment.GetEnvironmentVariable("COMPUTERNAME")}
+                                _cnStr:            {_cnStr}
         {new String('-', 130)}
         """);
     }
