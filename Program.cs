@@ -54,7 +54,7 @@ class Program
         }
 
 
-        _ = InternetSpeedTestLib.SpeedTest("speedtest.exe", "--format=json");
+        _ = InternetSpeedTestLib.SpeedTest("speedtest.exe", "--accept-gdpr --format=json");
 
         //    logMess = $"{DateTime.Now}, Speed test start, estimated {mess}, Using {testFile}";
         //    Console.WriteLine(logMess);
