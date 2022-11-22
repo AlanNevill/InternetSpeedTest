@@ -1,7 +1,8 @@
 {
   "profiles": {
     "InternetSpeedTest": {
-      "commandName": "Project"
+      "commandName": "Project",
+      "commandLineArgs": "--accept-license --accept-gdpr --format=json"
     }
   }
 }

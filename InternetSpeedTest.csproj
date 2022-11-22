@@ -2,12 +2,11 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
 	  <LangVersion>preview</LangVersion>
-  	  <LangVersion>preview</LangVersion>
 	  <Nullable>enable</Nullable>
 	  <UserSecretsId>1f54cc93-004f-43fb-9dfc-409b936b5788</UserSecretsId>
-	  <AssemblyVersion>1.0.0.0823</AssemblyVersion>
+	  <AssemblyVersion>1.0.0.1122</AssemblyVersion>
 	  <FileVersion>2.0.0.0826</FileVersion>
 	  <Version>1.0.3</Version>
   </PropertyGroup>
@@ -46,9 +45,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="appsettings.Development.json">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

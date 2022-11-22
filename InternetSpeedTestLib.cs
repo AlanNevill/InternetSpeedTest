@@ -28,15 +28,17 @@ internal static class InternetSpeedTestLib
     internal static void BuildConfig()
     {
         var config = new ConfigurationBuilder()
-            .SetBasePath(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location))
+            .SetBasePath(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location!))
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"}.json", optional: true)
             .AddEnvironmentVariables()
             .AddUserSecrets<Program>()
             .Build();
 
-        // get the database connection string from the appsettings.json file
-        _cnStr = Environment.GetEnvironmentVariable("COMPUTERNAME") == "SNOWBALL" ? config.GetConnectionString("connSnowball") : config.GetConnectionString("connWillbot");
+        // get the database connection string from the appsettings.json file depending in the computer name
+        _cnStr = Environment.GetEnvironmentVariable("COMPUTERNAME") == "SNOWBALL" 
+            ? config.GetConnectionString("connSnowball") 
+            : config.GetConnectionString("connWillbot");
 
         // serilog configuration
         Log.Logger = new LoggerConfiguration()
@@ -103,7 +105,7 @@ internal static class InternetSpeedTestLib
         }
         catch (Exception e)
         {
-            Log.Error($"InternetSpeedTestLib/SpeedTest exception: {e}");
+            Log.Fatal(e, "InternetSpeedTestLib/SpeedTest exception");
             throw;
         }
 
@@ -151,24 +153,31 @@ internal static class InternetSpeedTestLib
 
             """);
 
-
-        using (var context = new PopsContext())
+        // instaniate the new row
+        InternetSpeed internetSpeed = new()
         {
-            InternetSpeed internetSpeed = new ()
-            {
-                ResultUrl           = myDeserializedClass.Result.Url,
-                DownLoadBandwidth   = myDeserializedClass.Download.Bandwidth,
-                UploadBandWidth     = myDeserializedClass.Upload.Bandwidth,
-                ResultDateTime      = myDeserializedClass.Timestamp.ToLocalTime(),
-                PingJitter          = myDeserializedClass.Ping.Jitter,
-                PingLatency         = myDeserializedClass.Ping.Latency,
-                PingHigh            = myDeserializedClass.Ping.High,
-                PingLow             = myDeserializedClass.Ping.Low,
-                ResultJson          = strOutput
-            };
+            ResultUrl = myDeserializedClass.Result.Url,
+            DownLoadBandwidth = myDeserializedClass.Download.Bandwidth,
+            UploadBandWidth = myDeserializedClass.Upload.Bandwidth,
+            ResultDateTime = myDeserializedClass.Timestamp.ToLocalTime(),
+            PingJitter = myDeserializedClass.Ping.Jitter,
+            PingLatency = myDeserializedClass.Ping.Latency,
+            PingHigh = myDeserializedClass.Ping.High,
+            PingLow = myDeserializedClass.Ping.Low,
+            ResultJson = strOutput
+        };
+        
+        try
+        {
+            using var context = new PopsContext();
             context.InternetSpeed.Add(internetSpeed);
             context.SaveChanges();
         }
-    }
+        catch (Exception exc)
+        {
+            Log.Fatal(exc, "InternetSpeedTestLib/SpeedTest exception during save to database");
+            throw;
+        }
+     }
 }
 
