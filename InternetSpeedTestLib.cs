@@ -28,7 +28,7 @@ internal static class InternetSpeedTestLib
     internal static void BuildConfig()
     {
         var config = new ConfigurationBuilder()
-            .SetBasePath(Path.GetDirectoryName(Assembly.GetEntryAssembly().Location!))
+            .SetBasePath(Path.GetDirectoryName(Assembly.GetEntryAssembly()!.Location)!)
             .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
             .AddJsonFile($"appsettings.{Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT") ?? "Production"}.json", optional: true)
             .AddEnvironmentVariables()
