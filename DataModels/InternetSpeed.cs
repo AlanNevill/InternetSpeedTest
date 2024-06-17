@@ -1,8 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Microsoft.EntityFrameworkCore;
+
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-using Microsoft.EntityFrameworkCore;
 
 namespace InternetSpeedTest.DataModels;
 
@@ -13,26 +13,26 @@ public partial class InternetSpeed
 
     public DateTime? ResultDateTime { get; set; }
 
-    [StringLength(2048)]
-    [Unicode(false)]
+    [StringLength( 2048 )]
+    [Unicode( false )]
     public string? ResultUrl { get; set; }
 
-    [Column(TypeName = "real")]
+    [Column( TypeName = "real" )]
     public double? PingJitter { get; set; }
 
-    [Column(TypeName = "real)")]
+    [Column( TypeName = "real)" )]
     public double? PingLatency { get; set; }
 
-    [Column(TypeName = "real")]
+    [Column( TypeName = "real" )]
     public double? PingLow { get; set; }
 
-    [Column(TypeName = "real")]
+    [Column( TypeName = "real" )]
     public double? PingHigh { get; set; }
 
     public int? DownLoadBandwidth { get; set; }
 
     public int? UploadBandWidth { get; set; }
 
-    [Unicode(false)]
+    [Unicode( false )]
     public string? ResultJson { get; set; }
 }
