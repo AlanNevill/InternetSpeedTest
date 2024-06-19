@@ -166,8 +166,7 @@ internal static class InternetSpeedTestLib
         try
         {
             using var context = new PopsContext();
-            context.internetSpeed
-                .Add( internetSpeedRecord );
+            context.internetSpeed.Add( internetSpeedRecord );
             context.SaveChanges();
         }
         catch ( Exception exc )
