@@ -1,14 +1,16 @@
-﻿
+﻿namespace InternetSpeedTest;
 
-namespace InternetSpeedTest;
-
+/// <summary>
+/// Main program
+/// </summary>
 class Program
 {
     static void Main(string[] args)
     {
         InternetSpeedTestLib.BuildConfig();
-        
-        _ = InternetSpeedTestLib.SpeedTest("speedtest.exe", "--accept-license --accept-gdpr --format=json");
+
+        // Run the speed test SPEEDTEST.EXE from Ookla
+        _ = InternetSpeedTestLib.SpeedTest( "speedtest.exe", "--accept-license --accept-gdpr --format=json" );
 
         #region defunct code
         //// default to 10MB test file

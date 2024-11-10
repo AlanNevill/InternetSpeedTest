@@ -51,6 +51,12 @@ internal static class InternetSpeedTestLib
     }
 
 
+    /// <summary>
+    /// Run the speed test and return the output
+    /// </summary>
+    /// <param name="strCommand"></param>
+    /// <param name="strCommandParameters"></param>
+    /// <returns></returns>
     internal static string SpeedTest(string strCommand, string strCommandParameters)
     {
         string? strOutput, strError;
