@@ -1,11 +1,6 @@
-﻿using InternetSpeedTest;
-using System;
-using System.Diagnostics;
-using System.IO;
-using System.Net.Http;
-using Serilog;
+﻿
 
-namespace InternetSpeedCheck;
+namespace InternetSpeedTest;
 
 class Program
 {

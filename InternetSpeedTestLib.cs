@@ -1,6 +1,4 @@
-﻿using InternetSpeedCheck;
-
-using InternetSpeedTest.DataModels;
+﻿using InternetSpeedTest.DataModels;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -129,6 +127,10 @@ internal static class InternetSpeedTestLib
         return strOutput;
     }
 
+    /// <summary>
+    /// Deserialize the output and save into database table
+    /// </summary>
+    /// <param name="strOutput">string</param>
     internal static void ProcessResult(string strOutput)
     {
         InternetSpeedJSON.Root? myDeserializedClass = JsonSerializer.Deserialize<InternetSpeedJSON.Root>( strOutput );
