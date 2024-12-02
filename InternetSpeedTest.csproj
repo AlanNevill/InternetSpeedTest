@@ -7,7 +7,7 @@
     <UserSecretsId>1f54cc93-004f-43fb-9dfc-409b936b5788</UserSecretsId>
     <AssemblyVersion>1.0.0.1206</AssemblyVersion>
     <FileVersion>2.0.0.0826</FileVersion>
-    <Version>1.0.6</Version>
+    <Version>1.0.7</Version>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <Optimize>False</Optimize>

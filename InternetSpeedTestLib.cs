@@ -141,7 +141,20 @@ internal static class InternetSpeedTestLib
     {
         InternetSpeedJSON.Root? myDeserializedClass = JsonSerializer.Deserialize<InternetSpeedJSON.Root>( strOutput );
 
-        //InternetSpeedDto? internetSpeedDto = JsonSerializer.Deserialize<InternetSpeedDto>(strOutput);
+        // if the length of the down load bandwidth is 8 charcters then multiple by 10. Should be 9 digits with GigaClear
+        if ( myDeserializedClass!.Download.Bandwidth.ToString().Length == 8 )
+        {
+            myDeserializedClass.Download.Bandwidth *= 10;
+            Log.Warning( "InternetSpeedTestLib.ProcessResult: Download.Bandwidth was 8 characters, multiplied by 10" );
+        }
+
+        // if the length of the down load bandwidth is 8 charcters then multiple by 10. Should be 9 digits with GigaClear
+        if ( myDeserializedClass!.Upload.Bandwidth.ToString().Length == 8 )
+        {
+            myDeserializedClass.Upload.Bandwidth *= 10;
+            Log.Warning( "InternetSpeedTestLib.ProcessResult: Upload.Bandwidth was 8 characters, multiplied by 10" );
+        }
+
 
         Log.Information( $"""
             InternetSpeedTestLib.ProcessResult:
