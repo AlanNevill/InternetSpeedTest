@@ -14,7 +14,7 @@ namespace InternetSpeedTest;
 
 internal static class InternetSpeedTestLib
 {
-    public static string _cnStr = string.Empty;
+    public static string? _cnStr = string.Empty;
 
     /// <summary>
     /// Build the configuration and logger
@@ -41,7 +41,6 @@ internal static class InternetSpeedTestLib
 
         // Ensure the log prominently shows the database and server being used
         Log.Information( $"""
-
         {new String( '-', 130 )}
                                 InternetSpeedTest: v{System.Reflection.Assembly.GetExecutingAssembly().GetName().Version}
                                 COMPUTERNAME:      {Environment.GetEnvironmentVariable( "COMPUTERNAME" )}
@@ -62,7 +61,7 @@ internal static class InternetSpeedTestLib
         string? strOutput, strError;
 
         Log.Information( $"""
-            InternetSpeedTestLib.SpeedTest paramters:
+            InternetSpeedTestLib.SpeedTest parameters:
                 strCommand:                                                  {strCommand}
                 strCommandParameters:                                        {strCommandParameters}
                 Path.GetDirectoryName(Assembly.GetEntryAssembly().Location): {Path.GetDirectoryName( Assembly.GetEntryAssembly()?.Location )}
