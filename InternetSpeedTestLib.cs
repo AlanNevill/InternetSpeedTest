@@ -34,6 +34,8 @@ internal static class InternetSpeedTestLib
             ? config.GetConnectionString( "connSnowball" )
             : config.GetConnectionString( "connWillbot" );
 
+        _cnStr = config.GetConnectionString( "connLocal" );
+
         // serilog configuration
         Log.Logger = new LoggerConfiguration()
             .ReadFrom.Configuration( config )
