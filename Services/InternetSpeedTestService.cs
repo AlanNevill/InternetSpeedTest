@@ -40,11 +40,11 @@ internal sealed class InternetSpeedTestService : IInternetSpeedTestService
         var exe = _configuration["SpeedTest:Executable"] ?? "speedtest.exe";
         var args = _configuration["SpeedTest:Arguments"] ?? "--accept-license --accept-gdpr --format=json";
 
-        _logger.LogInformation("Running speed test: {Exe} {Args}", exe, args);
+        _logger.LogInformation( "Running speed test: {Exe} {Args}", exe, args );
 
-        var output = await RunProcessAsync(exe, args, cancellationToken);
+        var output = await RunProcessAsync( exe, args, cancellationToken );
 
-        await PersistAsync(output, cancellationToken);
+        await PersistAsync( output, cancellationToken );
 
         return output;
     }
@@ -68,27 +68,27 @@ internal sealed class InternetSpeedTestService : IInternetSpeedTestService
             EnableRaisingEvents = true
         };
 
-        if (!process.Start())
+        if ( !process.Start() )
         {
-            throw new InvalidOperationException($"Failed to start process: {fileName}");
+            throw new InvalidOperationException( $"Failed to start process: {fileName}" );
         }
 
-        var stdOutTask = process.StandardOutput.ReadToEndAsync();
-        var stdErrTask = process.StandardError.ReadToEndAsync();
+        var stdOutTask = process.StandardOutput.ReadToEndAsync( ct );
+        var stdErrTask = process.StandardError.ReadToEndAsync( ct );
 
-        using var reg = ct.Register(() =>
+        using var reg = ct.Register( () =>
         {
-            try { if (!process.HasExited) process.Kill(true); } catch { /* ignored */ }
-        });
+            try { if ( !process.HasExited ) process.Kill( true ); } catch { /* ignored */ }
+        } );
 
-        await process.WaitForExitAsync(ct);
+        await process.WaitForExitAsync( ct );
 
         var stdOut = await stdOutTask;
         var stdErr = await stdErrTask;
 
-        if (process.ExitCode != 0)
+        if ( process.ExitCode != 0 )
         {
-            throw new InvalidOperationException($"Speed test failed. ExitCode={process.ExitCode}, StdErr={stdErr}");
+            throw new InvalidOperationException( $"Speed test failed. ExitCode={process.ExitCode}, StdErr={stdErr}" );
         }
 
         return stdOut;
@@ -96,45 +96,45 @@ internal sealed class InternetSpeedTestService : IInternetSpeedTestService
 
     private async Task PersistAsync(string json, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(json))
+        if ( string.IsNullOrWhiteSpace( json ) )
         {
-            _logger.LogError("Speed test produced empty output");
+            _logger.LogError( "Speed test produced empty output" );
             return;
         }
 
         InternetSpeedJSON.Root? root;
         try
         {
-            root = JsonSerializer.Deserialize<InternetSpeedJSON.Root>(json, JsonOptions);
+            root = JsonSerializer.Deserialize<InternetSpeedJSON.Root>( json, JsonOptions );
         }
-        catch (JsonException ex)
+        catch ( JsonException ex )
         {
-            _logger.LogError(ex, "Invalid JSON from speed test");
+            _logger.LogError( ex, "Invalid JSON from speed test" );
             return;
         }
 
-        if (root is null)
+        if ( root is null )
         {
-            _logger.LogError("Deserialized result is null");
+            _logger.LogError( "Deserialized result is null" );
             return;
         }
 
         try
         {
-            if (root.Download.Bandwidth is >= 10_000_000 and <= 99_999_999)
+            if ( root.Download.Bandwidth is >= 10_000_000 and <= 99_999_999 )
             {
                 root.Download.Bandwidth *= 10;
-                _logger.LogWarning("Download bandwidth was 8 digits; multiplied by 10");
+                _logger.LogWarning( "Download bandwidth was 8 digits; multiplied by 10" );
             }
-            if (root.Upload.Bandwidth is >= 10_000_000 and <= 99_999_999)
+            if ( root.Upload.Bandwidth is >= 10_000_000 and <= 99_999_999 )
             {
                 root.Upload.Bandwidth *= 10;
-                _logger.LogWarning("Upload bandwidth was 8 digits; multiplied by 10");
+                _logger.LogWarning( "Upload bandwidth was 8 digits; multiplied by 10" );
             }
         }
-        catch (Exception ex)
+        catch ( Exception ex )
         {
-            _logger.LogWarning(ex, "Bandwidth correction failed");
+            _logger.LogWarning( ex, "Bandwidth correction failed" );
         }
 
         var record = new DataModels.InternetSpeed
@@ -150,8 +150,8 @@ internal sealed class InternetSpeedTestService : IInternetSpeedTestService
             ResultJson = json
         };
 
-        await using var db = await _contextFactory.CreateDbContextAsync(ct);
-        await db.internetSpeed.AddAsync(record, ct);
-        await db.SaveChangesAsync(ct);
+        await using var db = await _contextFactory.CreateDbContextAsync( ct );
+        await db.internetSpeed.AddAsync( record, ct );
+        await db.SaveChangesAsync( ct );
     }
 }
