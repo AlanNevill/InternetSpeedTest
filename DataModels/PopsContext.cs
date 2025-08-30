@@ -17,10 +17,7 @@ namespace InternetSpeedTest.DataModels
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            if ( !optionsBuilder.IsConfigured )
-            {
-                optionsBuilder.UseSqlServer( InternetSpeedTestLib._cnStr );
-            }
+            // Intentionally left blank. DbContext is configured via DI in Program.cs.
         }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)

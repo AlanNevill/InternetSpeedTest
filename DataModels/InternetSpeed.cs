@@ -20,7 +20,7 @@ public partial class InternetSpeed
     [Column( TypeName = "real" )]
     public double? PingJitter { get; set; }
 
-    [Column( TypeName = "real)" )]
+    [Column( TypeName = "real" )]
     public double? PingLatency { get; set; }
 
     [Column( TypeName = "real" )]
