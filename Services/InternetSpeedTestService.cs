@@ -13,34 +13,24 @@ using System.Threading.Tasks;
 
 namespace InternetSpeedTest;
 
-internal sealed class InternetSpeedTestService : IInternetSpeedTestService
+internal sealed class InternetSpeedTestService(
+    IDbContextFactory<PopsContext> popsContextFactory,
+    ILogger<InternetSpeedTestService> logger,
+    IConfiguration configuration)
+    : IInternetSpeedTestService
 {
-    private readonly IDbContextFactory<PopsContext> _contextFactory;
-    private readonly ILogger<InternetSpeedTestService> _logger;
-    private readonly IConfiguration _configuration;
-
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    public InternetSpeedTestService(
-        IDbContextFactory<PopsContext> contextFactory,
-        ILogger<InternetSpeedTestService> logger,
-        IConfiguration configuration)
-    {
-        _contextFactory = contextFactory;
-        _logger = logger;
-        _configuration = configuration;
-    }
-
     public async Task<string> RunAsync(CancellationToken cancellationToken = default)
     {
         // Resolve command and args from configuration with sane defaults
-        var exe = _configuration["SpeedTest:Executable"] ?? "speedtest.exe";
-        var args = _configuration["SpeedTest:Arguments"] ?? "--accept-license --accept-gdpr --format=json";
+        var exe = configuration["SpeedTest:Executable"] ?? "speedtest.exe";
+        var args = configuration["SpeedTest:Arguments"] ?? "--accept-license --accept-gdpr --format=json";
 
-        _logger.LogInformation( "Running speed test: {Exe} {Args}", exe, args );
+        logger.LogInformation( "Running speed test: {Exe} {Args}", exe, args );
 
         var output = await RunProcessAsync( exe, args, cancellationToken );
 
@@ -98,7 +88,7 @@ internal sealed class InternetSpeedTestService : IInternetSpeedTestService
     {
         if ( string.IsNullOrWhiteSpace( json ) )
         {
-            _logger.LogError( "Speed test produced empty output" );
+            logger.LogError( "Speed test produced empty output" );
             return;
         }
 
@@ -109,13 +99,13 @@ internal sealed class InternetSpeedTestService : IInternetSpeedTestService
         }
         catch ( JsonException ex )
         {
-            _logger.LogError( ex, "Invalid JSON from speed test" );
+            logger.LogError( ex, "Invalid JSON from speed test" );
             return;
         }
 
         if ( root is null )
         {
-            _logger.LogError( "Deserialized result is null" );
+            logger.LogError( "Deserialized result is null" );
             return;
         }
 
@@ -124,17 +114,17 @@ internal sealed class InternetSpeedTestService : IInternetSpeedTestService
             if ( root.Download.Bandwidth is >= 10_000_000 and <= 99_999_999 )
             {
                 root.Download.Bandwidth *= 10;
-                _logger.LogWarning( "Download bandwidth was 8 digits; multiplied by 10" );
+                logger.LogWarning( "Download bandwidth was 8 digits; multiplied by 10" );
             }
             if ( root.Upload.Bandwidth is >= 10_000_000 and <= 99_999_999 )
             {
                 root.Upload.Bandwidth *= 10;
-                _logger.LogWarning( "Upload bandwidth was 8 digits; multiplied by 10" );
+                logger.LogWarning( "Upload bandwidth was 8 digits; multiplied by 10" );
             }
         }
         catch ( Exception ex )
         {
-            _logger.LogWarning( ex, "Bandwidth correction failed" );
+            logger.LogWarning( ex, "Bandwidth correction failed" );
         }
 
         var record = new DataModels.InternetSpeed
@@ -150,7 +140,7 @@ internal sealed class InternetSpeedTestService : IInternetSpeedTestService
             ResultJson = json
         };
 
-        await using var db = await _contextFactory.CreateDbContextAsync( ct );
+        await using var db = await popsContextFactory.CreateDbContextAsync( ct );
         await db.internetSpeed.AddAsync( record, ct );
         await db.SaveChangesAsync( ct );
     }

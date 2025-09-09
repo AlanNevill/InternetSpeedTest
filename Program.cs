@@ -1,44 +1,41 @@
 ﻿using InternetSpeedTest;
 using InternetSpeedTest.DataModels;
+using InternetSpeedTest.DataModels.Emailer; // Added for Emailer DbContext
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
-using System;
+var builder = Host.CreateApplicationBuilder( args );
 
-var builder = Host.CreateApplicationBuilder(args);
+// Database connection
+var connectionString = builder.Configuration.GetConnectionString( "connLocal" );
 
-// Database connection selection by machine
-var connectionString = builder.Configuration.GetConnectionString("connLocal");
-var machine = System.Environment.MachineName?.ToUpperInvariant();
-if (machine == "SNOWBALL")
+if ( string.IsNullOrWhiteSpace( connectionString ) )
 {
-    connectionString = builder.Configuration.GetConnectionString("connSnowball") ?? connectionString;
-}
-else if (machine == "WILLBOT")
-{
-    connectionString = builder.Configuration.GetConnectionString("connWillbot") ?? connectionString;
+    throw new System.InvalidOperationException( "Connection string is not configured. Check appsettings.*.json or user secrets." );
 }
 
-if (string.IsNullOrWhiteSpace(connectionString))
-{
-    throw new System.InvalidOperationException("Connection string is not configured. Check appsettings.*.json or user secrets.");
-}
+// Optional separate connection string for Emailer
+var emailerConnectionString = builder.Configuration.GetConnectionString( "Emailer" ) ?? null;
 
-builder.Services.AddDbContextFactory<PopsContext>(options =>
+builder.Services.AddDbContextFactory<PopsContext>( options =>
 {
-    options.UseSqlServer(connectionString);
-});
+    options.UseSqlServer( connectionString );
+} );
+
+builder.Services.AddDbContextFactory<Emailer>( options =>
+{
+    options.UseSqlServer( emailerConnectionString );
+} );
 
 builder.Services.AddScoped<IInternetSpeedTestService, InternetSpeedTestService>();
 
 var app = builder.Build();
 
 // Resolve and run the service
-using (var scope = app.Services.CreateScope())
+using ( var scope = app.Services.CreateScope() )
 {
     var svc = scope.ServiceProvider.GetRequiredService<IInternetSpeedTestService>();
     await svc.RunAsync();
