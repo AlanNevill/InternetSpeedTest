@@ -70,19 +70,17 @@ public sealed class HelperLib(ILogger<HelperLib> logger)
             ? new StringBuilder()
                 .AppendLine( $"Date: {vGigaClearByDay.SmallDate}" )
                 .AppendLine( $"Number of Samples: {vGigaClearByDay.NumSamples}" )
-                .AppendLine( $"Average Download Speed (Mbps): {vGigaClearByDay.AvgDownMbps:N2}" )
-                .AppendLine( $"Download Speed Std Dev (Mbps): {vGigaClearByDay.StdDownMbps:N2}" )
-                .AppendLine( $"Average Upload Speed (Mbps): {vGigaClearByDay.AvgUpMbps:N2}" )
-                .AppendLine( $"Upload Speed Std Dev (Mbps): {vGigaClearByDay.StdUpMbps:N2}" )
+                .AppendLine( $"Average Download Speed (Mbps):\t{vGigaClearByDay.AvgDownMbps:N2}, Std Dev (Mbps): {vGigaClearByDay.StdDownMbps:N2}" )
+                .AppendLine( $"Average Upload Speed (Mbps):\t{vGigaClearByDay.AvgUpMbps:N2}, Std Dev (Mbps): {vGigaClearByDay.StdUpMbps:N2}" )
                 .ToString()
-            : "<br></br>No data available for the specified date.";
+            : "No data available for the specified date.";
 
         var escapedContent = WebUtility.HtmlEncode( emailBody );
 
         sb.AppendLine( escapedContent )
           .AppendLine( "    </div>" )
           .AppendLine( "    <div class='footer'>" )
-          .AppendLine( "        <p>This is an automated report from Internet Speed Test Application.</p><br></br>" )
+          .AppendLine( "        <p>This is an automated report from Internet Speed Test Application.</p>" )
           .AppendLine( $"        <p>Log entries: {emailBody.Split( Environment.NewLine, StringSplitOptions.RemoveEmptyEntries ).Length}</p>" )
           .AppendLine( "    </div>" )
           .AppendLine( "</body>" )
@@ -170,7 +168,7 @@ public sealed class HelperLib(ILogger<HelperLib> logger)
                 RetryCount = 0,
                 MaxRetries = 3,
                 CreatedAt = DateTime.UtcNow,
-                ScheduledAt = DateTime.UtcNow,
+                ScheduledAt = null,
             };
             Log.Information( "EmailCreate message object initialized" );
 

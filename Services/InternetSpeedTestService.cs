@@ -289,7 +289,7 @@ internal sealed class InternetSpeedTestService(
 
         // any more daily tasks can be added here
 
-        logger.LogInformation( "Daily tasks executed at {UtcNow} UTC", DateTime.UtcNow );
+        logger.LogInformation( "Daily tasks completed at {UtcNow} UTC", DateTime.UtcNow );
     }
 
 
