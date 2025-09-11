@@ -1,42 +1,59 @@
-﻿using InternetSpeedTest;
+﻿using InternetSpeedTest; // For IInternetSpeedTestService interface
 using InternetSpeedTest.DataModels;
-using InternetSpeedTest.DataModels.Emailer; // Added for Emailer DbContext
+using InternetSpeedTest.DataModels.Emailer;
+using InternetSpeedTest.Services;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
-var builder = Host.CreateApplicationBuilder( args );
+using Serilog;
 
-// Database connection
-var connectionString = builder.Configuration.GetConnectionString( "connLocal" );
+using System; // For Exception / InvalidOperationException
 
-if ( string.IsNullOrWhiteSpace( connectionString ) )
+// Bootstrap host with Serilog integrated so ILogger<T> routes to Serilog sinks defined in appsettings.json
+Log.Logger = new LoggerConfiguration()
+    .WriteTo.Console() // early console
+    .CreateLogger();
+
+try
 {
-    throw new System.InvalidOperationException( "Connection string is not configured. Check appsettings.*.json or user secrets." );
-}
+    var host = Host.CreateDefaultBuilder( args )
+        .UseSerilog( (ctx, services, loggerConfig) =>
+        {
+            loggerConfig
+                .ReadFrom.Configuration( ctx.Configuration )
+                .ReadFrom.Services( services )
+                .Enrich.FromLogContext();
+        } )
+        .ConfigureServices( (ctx, services) =>
+        {
+            var config = ctx.Configuration;
 
-// Optional separate connection string for Emailer
-var emailerConnectionString = builder.Configuration.GetConnectionString( "Emailer" ) ?? null;
+            var connectionString = config.GetConnectionString( "connLocal" )
+                ?? throw new InvalidOperationException( "Connection string 'connLocal' is not configured." );
+            var emailerConnectionString = config.GetConnectionString( "Emailer" )
+                ?? throw new InvalidOperationException( "Connection string 'Emailer' is not configured." );
 
-builder.Services.AddDbContextFactory<PopsContext>( options =>
-{
-    options.UseSqlServer( connectionString );
-} );
+            services.AddDbContextFactory<PopsContext>( options => options.UseSqlServer( connectionString ) );
+            services.AddDbContextFactory<Emailer>( options => options.UseSqlServer( emailerConnectionString ) );
 
-builder.Services.AddDbContextFactory<Emailer>( options =>
-{
-    options.UseSqlServer( emailerConnectionString );
-} );
+            services.AddScoped<IInternetSpeedTestService, InternetSpeedTestService>();
+        } )
+        .Build();
 
-builder.Services.AddScoped<IInternetSpeedTestService, InternetSpeedTestService>();
-
-var app = builder.Build();
-
-// Resolve and run the service
-using ( var scope = app.Services.CreateScope() )
-{
+    using var scope = host.Services.CreateScope();
     var svc = scope.ServiceProvider.GetRequiredService<IInternetSpeedTestService>();
-    await svc.RunAsync();
+    await svc.RunDailyIfNeededAsync();
+    //await svc.RunAsync();
+}
+catch ( Exception ex )
+{
+    Log.Fatal( ex, "Unhandled exception" );
+    throw;
+}
+finally
+{
+    Log.CloseAndFlush();
 }

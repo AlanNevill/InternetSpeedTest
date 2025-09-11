@@ -1,4 +1,5 @@
 using InternetSpeedTest.DataModels;
+using InternetSpeedTest.DataModels.Emailer;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
@@ -6,15 +7,18 @@ using Microsoft.Extensions.Logging;
 
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace InternetSpeedTest;
+namespace InternetSpeedTest.Services;
 
 internal sealed class InternetSpeedTestService(
     IDbContextFactory<PopsContext> popsContextFactory,
+    IDbContextFactory<Emailer> emailerContextFactory,
     ILogger<InternetSpeedTestService> logger,
     IConfiguration configuration)
     : IInternetSpeedTestService
@@ -24,8 +28,13 @@ internal sealed class InternetSpeedTestService(
         PropertyNameCaseInsensitive = true
     };
 
+    private readonly string _dailyStatePath = ResolveDailyStatePath( configuration );
+
     public async Task<string> RunAsync(CancellationToken cancellationToken = default)
     {
+        // Execute daily tasks if needed before the hourly run
+        await RunDailyIfNeededAsync( cancellationToken );
+
         // Resolve command and args from configuration with sane defaults
         var exe = configuration["SpeedTest:Executable"] ?? "speedtest.exe";
         var args = configuration["SpeedTest:Arguments"] ?? "--accept-license --accept-gdpr --format=json";
@@ -37,6 +46,49 @@ internal sealed class InternetSpeedTestService(
         await PersistAsync( output, cancellationToken );
 
         return output;
+    }
+
+    public async Task<bool> RunDailyIfNeededAsync(CancellationToken cancellationToken = default)
+    {
+        using var _ = HelperLib.BeginMethodScopeLocal( nameof( HelperLib ) );
+
+        // Check if already run today
+        var today = DateTime.UtcNow.Date;
+        DailyState state;
+
+        try
+        {
+            state = await LoadDailyStateAsync( cancellationToken ) ?? new DailyState();
+        }
+        catch ( Exception ex )
+        {
+            logger.LogWarning( ex, "Failed to load daily state; proceeding as if never run" );
+            state = new DailyState();
+        }
+
+        if ( state.LastDailyRunUtc?.Date == today )
+        {
+            // Already ran today
+            logger.LogInformation( "Daily tasks have already been run today" );
+
+            return false;
+        }
+
+        // Perform daily tasks (placeholder for now)
+        await DoDailyTasksAsync( cancellationToken );
+
+        // Update state and persist to json file
+        state.LastDailyRunUtc = DateTime.UtcNow;
+        try
+        {
+            await SaveDailyStateAsync( state, cancellationToken );
+        }
+        catch ( Exception ex )
+        {
+            logger.LogWarning( ex, "Failed to persist daily state to {Path}", _dailyStatePath );
+        }
+
+        return true;
     }
 
     private static async Task<string> RunProcessAsync(string fileName, string arguments, CancellationToken ct)
@@ -76,14 +128,18 @@ internal sealed class InternetSpeedTestService(
         var stdOut = await stdOutTask;
         var stdErr = await stdErrTask;
 
-        if ( process.ExitCode != 0 )
-        {
-            throw new InvalidOperationException( $"Speed test failed. ExitCode={process.ExitCode}, StdErr={stdErr}" );
-        }
-
-        return stdOut;
+        // Check exit code and return stdOut or throw
+        return process.ExitCode != 0
+            ? throw new InvalidOperationException( $"Speed test failed. ExitCode={process.ExitCode}, StdErr={stdErr}" )
+            : stdOut;
     }
 
+    /// <summary>
+    /// Write the speed test result to the database
+    /// </summary>
+    /// <param name="json"></param>
+    /// <param name="ct"></param>
+    /// <returns></returns>
     private async Task PersistAsync(string json, CancellationToken ct)
     {
         if ( string.IsNullOrWhiteSpace( json ) )
@@ -127,7 +183,7 @@ internal sealed class InternetSpeedTestService(
             logger.LogWarning( ex, "Bandwidth correction failed" );
         }
 
-        var record = new DataModels.InternetSpeed
+        var record = new InternetSpeed
         {
             ResultUrl = root.Result.Url,
             DownLoadBandwidth = root.Download.Bandwidth,
@@ -144,4 +200,97 @@ internal sealed class InternetSpeedTestService(
         await db.internetSpeed.AddAsync( record, ct );
         await db.SaveChangesAsync( ct );
     }
+
+    private static string ResolveDailyStatePath(IConfiguration configuration)
+    {
+        var overridePath = configuration["DailyRun:StatePath"];
+        if ( !string.IsNullOrWhiteSpace( overridePath ) )
+        {
+            return overridePath!;
+        }
+
+        var programData = Environment.GetFolderPath( Environment.SpecialFolder.CommonApplicationData );
+        var dir = Path.Combine( programData, "InternetSpeedTest" );
+        try
+        {
+            Directory.CreateDirectory( dir );
+        }
+        catch
+        {
+            // Fall back to base directory if ProgramData is not writable
+            dir = AppContext.BaseDirectory;
+        }
+
+        return Path.Combine( dir, "state.json" );
+    }
+
+    private sealed class DailyState
+    {
+        public DateTime? LastDailyRunUtc { get; set; }
+    }
+
+    private async Task<DailyState?> LoadDailyStateAsync(CancellationToken ct)
+    {
+        using var _ = HelperLib.BeginMethodScopeLocal( nameof( HelperLib ) );
+
+        if ( !File.Exists( _dailyStatePath ) )
+        {
+            logger.LogError( "Daily state file does not exist at {Path}", _dailyStatePath );
+            return null;
+        }
+
+        await using var fs = new FileStream( _dailyStatePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous );
+        return await JsonSerializer.DeserializeAsync<DailyState>( fs, cancellationToken: ct );
+    }
+
+    private async Task SaveDailyStateAsync(DailyState state, CancellationToken ct)
+    {
+        var dir = Path.GetDirectoryName( _dailyStatePath );
+        if ( !string.IsNullOrEmpty( dir ) )
+        {
+            Directory.CreateDirectory( dir );
+        }
+
+        await using var fs = new FileStream( _dailyStatePath, FileMode.Create, FileAccess.Write, FileShare.None, 4096, FileOptions.Asynchronous );
+        await JsonSerializer.SerializeAsync( fs, state, cancellationToken: ct );
+    }
+
+    /// <summary>
+    /// Do the daily tasks. 
+    /// </summary>
+    /// <param name="ct"></param>
+    /// <returns></returns>
+    private async Task DoDailyTasksAsync(CancellationToken ct)
+    {
+        using var _ = HelperLib.BeginMethodScopeLocal( nameof( HelperLib ) );
+
+        // get yesterday's date in UTC
+        var yesterday = DateTime.UtcNow.Date.AddDays( -1 );
+
+        logger.LogInformation( "Performing daily tasks for {Date}", yesterday.ToString( "yyyy-MM-dd" ) );
+
+        // get yesterday's summary from the database view
+        using var popsDb = popsContextFactory.CreateDbContext();
+        var vGigaClear4day = popsDb.VGigaClearByDays
+            .AsNoTracking()
+            .FirstOrDefault( v => v.SmallDate == yesterday.ToString( "yyyy-MM-dd" ) );
+
+        // format the email body as HTML
+        string formattedEmail = HelperLib.FormatEmailForAcs( vGigaClear4day! );
+
+        // send the email to the emailer service table
+        var result = await HelperLib.EmailerService_WriteMessage(
+            subject: $"Daily Internet Speed Test Report for {yesterday:yyyy-MM-dd}",
+            bodyHtml: formattedEmail,
+            toAddress: "alannevill@gmail.com",
+            emailerDb: emailerContextFactory.CreateDbContext()
+        );
+        logger.LogInformation( "EmailerService_WriteMessage result: {Result}", result );
+
+        // any more daily tasks can be added here
+
+        logger.LogInformation( "Daily tasks executed at {UtcNow} UTC", DateTime.UtcNow );
+    }
+
+
 }
