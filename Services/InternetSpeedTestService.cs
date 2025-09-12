@@ -20,7 +20,8 @@ internal sealed class InternetSpeedTestService(
     IDbContextFactory<PopsContext> popsContextFactory,
     IDbContextFactory<Emailer> emailerContextFactory,
     ILogger<InternetSpeedTestService> logger,
-    IConfiguration configuration)
+    IConfiguration configuration,
+    CloudflareSpeedTestService cloudflareService)
     : IInternetSpeedTestService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -35,13 +36,25 @@ internal sealed class InternetSpeedTestService(
         // Execute daily tasks if needed before the hourly run
         await RunDailyIfNeededAsync( cancellationToken );
 
-        // Resolve command and args from configuration with sane defaults
-        var exe = configuration["SpeedTest:Executable"] ?? "speedtest.exe";
-        var args = configuration["SpeedTest:Arguments"] ?? "--accept-license --accept-gdpr --format=json";
+        // Check if we should use Cloudflare instead of Ookla
+        var useCloudflare = configuration.GetValue<bool>("SpeedTest:UseCloudflare", false);
+        
+        string output;
+        if (useCloudflare)
+        {
+            logger.LogInformation("Running Cloudflare speed test");
+            var cloudflareResult = await cloudflareService.RunSpeedTestAsync(cancellationToken);
+            output = cloudflareResult.ToOoklaCompatibleJson();
+        }
+        else
+        {
+            // Resolve command and args from configuration with sane defaults
+            var exe = configuration["SpeedTest:Executable"] ?? "speedtest.exe";
+            var args = configuration["SpeedTest:Arguments"] ?? "--accept-license --accept-gdpr --format=json";
 
-        logger.LogInformation( "Running speed test: {Exe} {Args}", exe, args );
-
-        var output = await RunProcessAsync( exe, args, cancellationToken );
+            logger.LogInformation( "Running speed test: {Exe} {Args}", exe, args );
+            output = await RunProcessAsync( exe, args, cancellationToken );
+        }
 
         await PersistAsync( output, cancellationToken );
 
@@ -165,23 +178,24 @@ internal sealed class InternetSpeedTestService(
             return;
         }
 
-        try
-        {
-            if ( root.Download.Bandwidth is >= 10_000_000 and <= 99_999_999 )
-            {
-                root.Download.Bandwidth *= 10;
-                logger.LogWarning( "Download bandwidth was 8 digits; multiplied by 10" );
-            }
-            if ( root.Upload.Bandwidth is >= 10_000_000 and <= 99_999_999 )
-            {
-                root.Upload.Bandwidth *= 10;
-                logger.LogWarning( "Upload bandwidth was 8 digits; multiplied by 10" );
-            }
-        }
-        catch ( Exception ex )
-        {
-            logger.LogWarning( ex, "Bandwidth correction failed" );
-        }
+        // X10 bandwidth correction disabled
+        // try
+        // {
+        //     if ( root.Download.Bandwidth is >= 10_000_000 and <= 99_999_999 )
+        //     {
+        //         root.Download.Bandwidth *= 10;
+        //         logger.LogWarning( "Download bandwidth was 8 digits; multiplied by 10" );
+        //     }
+        //     if ( root.Upload.Bandwidth is >= 10_000_000 and <= 99_999_999 )
+        //     {
+        //         root.Upload.Bandwidth *= 10;
+        //         logger.LogWarning( "Upload bandwidth was 8 digits; multiplied by 10" );
+        //     }
+        // }
+        // catch ( Exception ex )
+        // {
+        //     logger.LogWarning( ex, "Bandwidth correction failed" );
+        // }
 
         var record = new InternetSpeed
         {

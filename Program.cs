@@ -39,6 +39,7 @@ try
             services.AddDbContextFactory<PopsContext>( options => options.UseSqlServer( connectionString ) );
             services.AddDbContextFactory<Emailer>( options => options.UseSqlServer( emailerConnectionString ) );
 
+            services.AddScoped<CloudflareSpeedTestService>();
             services.AddScoped<IInternetSpeedTestService, InternetSpeedTestService>();
         } )
         .Build();
