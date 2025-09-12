@@ -25,7 +25,7 @@ public class CloudflareSpeedTestService
         _logger = logger;
         _httpClient = new HttpClient
         {
-            Timeout = TimeSpan.FromMinutes( 2 ) // Allow up to 2 minutes for speed tests
+            Timeout = TimeSpan.FromMinutes( 4 ) // Allow up to 4 minutes for speed tests
         };
     }
 
@@ -173,10 +173,15 @@ public class CloudflareSpeedTestService
                     bestSpeed = Math.Max( bestSpeed, speed );
                     _logger.LogInformation( "Download test {Size}MB: {Speed:F2} Mbps", size / 1_000_000.0, speed / 1_000_000.0 * 8 );
                 }
+                else
+                {
+                    _logger.LogWarning( "Download test returned unexpected size {ReceivedSize} for requested {RequestedSize}", data.Length, size );
+                    break; // Stop if we don't get the expected data size
+                }
             }
             catch ( Exception ex )
             {
-                _logger.LogWarning( ex, "Download test failed for size {Size}", size );
+                _logger.LogError( ex, "Download test failed for size {Size}", size );
                 break; // Don't try larger sizes if smaller ones fail
             }
         }
@@ -194,7 +199,7 @@ public class CloudflareSpeedTestService
         using var _ = HelperLib.BeginMethodScope();
 
         // Progressive upload test
-        var testSizes = new[] { 1_000_000, 10_000_000, 50_000_000, 250_000_000, 1_000_000_000, 2_000_000_000 }; // 1MB, 10MB, 50MB, 250MB, 1GB, 2GB
+        var testSizes = new[] { 1_000_000, 10_000_000, 50_000_000, 250_000_000, 500_000_000 }; // 1MB, 10MB, 50MB, 250MB, 500MB
         var bestSpeed = 0.0;
 
         foreach ( var size in testSizes )
@@ -218,10 +223,18 @@ public class CloudflareSpeedTestService
                     bestSpeed = Math.Max( bestSpeed, speed );
                     _logger.LogInformation( "Upload test {Size}MB: {Speed:F2} Mbps", size / 1_000_000.0, speed / 1_000_000.0 * 8 );
                 }
+                else
+                {
+                    _logger.LogWarning( "Upload test failed for size {Size}MB: {StatusCode}, ReasonPhrase: {ReasonPhrase}",
+                        size / 1_000_000.0,
+                        response.StatusCode,
+                        response.ReasonPhrase );
+                    break; // Stop if upload fails
+                }
             }
             catch ( Exception ex )
             {
-                _logger.LogWarning( ex, "Upload test failed for size {Size}", size );
+                _logger.LogError( ex, "Upload test failed for size {Size}", size );
                 break;
             }
         }
