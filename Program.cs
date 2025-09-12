@@ -47,8 +47,8 @@ try
     // Run the service functions
     using var scope = host.Services.CreateScope();
     var svc = scope.ServiceProvider.GetRequiredService<IInternetSpeedTestService>();
-    await svc.RunDailyIfNeededAsync();
     await svc.RunAsync();
+    await svc.RunDailyIfNeededAsync();
 }
 catch ( Exception ex )
 {

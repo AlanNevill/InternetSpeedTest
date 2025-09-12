@@ -33,17 +33,14 @@ internal sealed class InternetSpeedTestService(
 
     public async Task<string> RunAsync(CancellationToken cancellationToken = default)
     {
-        // Execute daily tasks if needed before the hourly run
-        await RunDailyIfNeededAsync( cancellationToken );
-
         // Check if we should use Cloudflare instead of Ookla
-        var useCloudflare = configuration.GetValue<bool>("SpeedTest:UseCloudflare", false);
-        
+        var useCloudflare = configuration.GetValue<bool>( "SpeedTest:UseCloudflare", false );
+
         string output;
-        if (useCloudflare)
+        if ( useCloudflare )
         {
-            logger.LogInformation("Running Cloudflare speed test");
-            var cloudflareResult = await cloudflareService.RunSpeedTestAsync(cancellationToken);
+            logger.LogInformation( "Running Cloudflare speed test" );
+            var cloudflareResult = await cloudflareService.RunSpeedTestAsync( cancellationToken );
             output = cloudflareResult.ToOoklaCompatibleJson();
         }
         else
@@ -63,7 +60,7 @@ internal sealed class InternetSpeedTestService(
 
     public async Task<bool> RunDailyIfNeededAsync(CancellationToken cancellationToken = default)
     {
-        using var _ = HelperLib.BeginMethodScopeLocal( nameof( HelperLib ) );
+        using var _ = HelperLib.BeginMethodScope();
 
         // Check if already run today
         var today = DateTime.UtcNow.Date;

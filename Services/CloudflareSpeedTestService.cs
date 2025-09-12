@@ -155,7 +155,7 @@ public class CloudflareSpeedTestService
         using var _ = HelperLib.BeginMethodScope();
 
         // Progressive download test - start small and increase size
-        var testSizes = new[] { 1_000_000, 10_000_000, 50_000_000, 250_000_000, 1_000_000_000, 5_000_000_000 }; // 1MB, 10MB, 50MB, 250MB, 1GB, 5GB
+        var testSizes = new[] { 1_000_000, 10_000_000, 50_000_000, 250_000_000, 1_000_000_000, 2_000_000_000 }; // 1MB, 10MB, 50MB, 250MB, 1GB, 2GB
         var bestSpeed = 0.0;
 
         foreach ( var size in testSizes )
@@ -194,7 +194,7 @@ public class CloudflareSpeedTestService
         using var _ = HelperLib.BeginMethodScope();
 
         // Progressive upload test
-        var testSizes = new[] { 1_000_000, 10_000_000, 50_000_000, 250_000_000, 1_000_000_000, 5_000_000_000 }; // 1MB, 10MB, 50MB, 250MB, 1GB, 5GB
+        var testSizes = new[] { 1_000_000, 10_000_000, 50_000_000, 250_000_000, 1_000_000_000, 2_000_000_000 }; // 1MB, 10MB, 50MB, 250MB, 1GB, 2GB
         var bestSpeed = 0.0;
 
         foreach ( var size in testSizes )
@@ -216,7 +216,7 @@ public class CloudflareSpeedTestService
                 {
                     var speed = size / stopwatch.Elapsed.TotalSeconds;
                     bestSpeed = Math.Max( bestSpeed, speed );
-                    _logger.LogDebug( "Upload test {Size}KB: {Speed:F2} Mbps", size / 1000.0, speed / 1_000_000.0 * 8 );
+                    _logger.LogInformation( "Upload test {Size}MB: {Speed:F2} Mbps", size / 1_000_000.0, speed / 1_000_000.0 * 8 );
                 }
             }
             catch ( Exception ex )
@@ -279,7 +279,7 @@ public class CloudflareSpeedTestResult
             result = new
             {
                 id = "cloudflare",
-                url = "CloudFlare"
+                url = $"Cloudflare - {Server.Location}"
             },
             server = new
             {
