@@ -6,6 +6,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -175,25 +176,6 @@ internal sealed class InternetSpeedTestService(
             return;
         }
 
-        // X10 bandwidth correction disabled
-        // try
-        // {
-        //     if ( root.Download.Bandwidth is >= 10_000_000 and <= 99_999_999 )
-        //     {
-        //         root.Download.Bandwidth *= 10;
-        //         logger.LogWarning( "Download bandwidth was 8 digits; multiplied by 10" );
-        //     }
-        //     if ( root.Upload.Bandwidth is >= 10_000_000 and <= 99_999_999 )
-        //     {
-        //         root.Upload.Bandwidth *= 10;
-        //         logger.LogWarning( "Upload bandwidth was 8 digits; multiplied by 10" );
-        //     }
-        // }
-        // catch ( Exception ex )
-        // {
-        //     logger.LogWarning( ex, "Bandwidth correction failed" );
-        // }
-
         var record = new InternetSpeed
         {
             ResultUrl = root.Result.Url,
@@ -273,15 +255,99 @@ internal sealed class InternetSpeedTestService(
     /// <returns></returns>
     private async Task DoDailyTasksAsync(CancellationToken ct)
     {
-        using var _ = HelperLib.BeginMethodScopeLocal( nameof( HelperLib ) );
+        using var _ = HelperLib.BeginMethodScope();
 
         // get yesterday's date in UTC
         var yesterday = DateTime.UtcNow.Date.AddDays( -1 );
 
         logger.LogInformation( "Performing daily tasks for {Date}", yesterday.ToString( "yyyy-MM-dd" ) );
 
+        // Summarise results for yesterday and email
+        await SummariseResultsYesterday( yesterday );
+
+        // Perform PC health check
+        await PcHealthCheck();
+
+        // any more daily tasks can be added here
+
+        logger.LogInformation( "Daily tasks completed at {UtcNow} UTC", DateTime.UtcNow );
+    }
+
+    private async Task PcHealthCheck()
+    {
+        using var _ = HelperLib.BeginMethodScope();
+
+        // Enumerate local, ready fixed drives
+        var drives = DriveInfo.GetDrives()
+            .Where( d => d.DriveType == DriveType.Fixed && d.IsReady )
+            .OrderBy( d => d.Name )
+            .ToList();
+
+        if ( drives.Count == 0 )
+        {
+            logger.LogWarning( "No fixed drives detected for PC health check" );
+            return;
+        }
+
+        logger.LogInformation( "Performing PC health check on {DriveCount} drives", drives.Count );
+
+        // Collect drive info into records
+        var driveRows = new List<HelperLib.DriveHealthRow>();
+
+        foreach ( var d in drives )
+        {
+            var totalBytes = d.TotalSize;
+            var freeBytes = d.TotalFreeSpace; // free space available on the drive
+            var totalGb = totalBytes / (1024d * 1024d * 1024d);
+            var freeGb = freeBytes / (1024d * 1024d * 1024d);
+            var pctFree = totalBytes > 0 ? (freeBytes / (double)totalBytes) * 100d : 0d;
+            var low = pctFree < 10d;
+
+            // Collect for HTML summary
+            driveRows.Add( new HelperLib.DriveHealthRow(
+                Drive: d.Name,
+                TotalGB: Math.Round( totalGb, 2 ),
+                FreeGB: Math.Round( freeGb, 2 ),
+                PctFree: Math.Round( pctFree, 1 ),
+                LowSpace: low
+            ) );
+
+            // Log one line per drive
+            logger.LogInformation(
+                "Drive {Drive} - Total: {TotalGB:N2} GB, Free: {FreeGB:N2} GB ({PctFree:N1}%)",
+                d.Name, totalGb, freeGb, pctFree
+            );
+
+            // Optional: warn if low free space
+            if ( low )
+            {
+                logger.LogWarning(
+                    "Low disk space on {Drive}: {FreeGB:N2} GB free ({PctFree:N1}%) of {TotalGB:N2} GB",
+                    d.Name, freeGb, pctFree, totalGb
+                );
+            }
+        }
+
+        // Build HTML table (to be attached to email)
+        var drivesHtml = HelperLib.FormatEmailDrives( driveRows, "PC Drive Health" );
+
+        // send the email to the emailer service table
+        var result = await HelperLib.EmailerService_WriteMessage(
+            subject: $"Drive Space Report",
+            bodyHtml: drivesHtml,
+            toAddress: "alannevill@gmail.com",
+            emailerDb: emailerContextFactory.CreateDbContext()
+        );
+
+        logger.LogInformation( "EmailerService_WriteMessage result: {Result}", result );
+
+        await Task.CompletedTask;
+    }
+
+    private async Task SummariseResultsYesterday(DateTime yesterday)
+    {
         // get yesterday's summary from the database view
-        using var popsDb = popsContextFactory.CreateDbContext();
+        var popsDb = popsContextFactory.CreateDbContext();
         var vGigaClear4day = popsDb.VGigaClearByDays
             .AsNoTracking()
             .FirstOrDefault( v => v.SmallDate == yesterday.ToString( "yyyy-MM-dd" ) );
@@ -297,11 +363,5 @@ internal sealed class InternetSpeedTestService(
             emailerDb: emailerContextFactory.CreateDbContext()
         );
         logger.LogInformation( "EmailerService_WriteMessage result: {Result}", result );
-
-        // any more daily tasks can be added here
-
-        logger.LogInformation( "Daily tasks completed at {UtcNow} UTC", DateTime.UtcNow );
     }
-
-
 }

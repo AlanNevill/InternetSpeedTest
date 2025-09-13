@@ -37,9 +37,22 @@ Configure speed test provider in `appsettings.json`:
 - **Automated Scheduling**: Runs every hour via Windows Task Scheduler
 - **Database Storage**: Results stored in SQL Server with consistent schema
 - **Daily Email Reports**: Automated daily summary emails
+- **Drive Space / PC Health Report**: Daily HTML table of local fixed drives (capacity, free GB, % free, LOW flag < 10%)
 - **Comprehensive Logging**: Serilog with file and console output
 - **JSON Processing**: Robust deserialization with error handling
 - **Data Quality**: Raw bandwidth values (x10 correction disabled)
+
+## Daily Reports
+The daily job performs:
+1. Internet speed summary for the previous day (aggregate stats)
+2. PC drive health check rendered as an HTML table:
+
+| Drive | Total (GB) | Free (GB) | Free % | Status |
+|-------|-----------:|----------:|-------:|:-------|
+| C:\\ | 476.94 | 120.55 | 25.3 | OK |
+| D:\\ | 931.51 | 45.11 | 4.8 | LOW |
+
+Drives with less than 10% free space are highlighted and marked LOW.
 
 ## Usage
 
@@ -78,7 +91,7 @@ Results are stored in the `InternetSpeed` table:
 
 Logs are written to:
 - **Console**: Real-time output during execution
-- **File**: `C:\logs\InternetSpeedTest\InternetSpeedTest-{date}.log`
+- **File**: `C:\\logs\\InternetSpeedTest\\InternetSpeedTest-{date}.log`
 - **Retention**: 10 files, 4MB each, daily rotation
 
 ## Dependencies

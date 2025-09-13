@@ -57,5 +57,6 @@ catch ( Exception ex )
 }
 finally
 {
+    Log.Information( "Shutting down\n" );
     Log.CloseAndFlush();
 }
