@@ -41,7 +41,7 @@ public static class HelperLib
     /// </summary>
     /// <param name="vGigaClearByDay">Daily speed aggregation row</param>
     /// <param name="driveTableHtml">Optional pre-rendered drive health HTML table from FormatEmailDrives()</param>
-    public static string FormatEmailForAcs(VGigaClearByDay vGigaClearByDay, string? driveTableHtml = null)
+    public static string FormatEmailForAcs(VGigaClearByDay vGigaClearByDay)
     {
         var yesterday = DateTime.Today.AddDays( -1 );
         var sb = new StringBuilder();
@@ -73,38 +73,15 @@ public static class HelperLib
             ? new StringBuilder()
                 .AppendLine( $"Date: {vGigaClearByDay.SmallDate}" )
                 .AppendLine( $"Number of Samples: {vGigaClearByDay.NumSamples}" )
-                .AppendLine( $"Average Download Speed (Mbps): {vGigaClearByDay.AvgDownMbps:N2}" )
-                .AppendLine( $"Download Std Dev (Mbps): {vGigaClearByDay.StdDownMbps:N2}" )
-                .AppendLine( $"Average Upload Speed (Mbps): {vGigaClearByDay.AvgUpMbps:N2}" )
-                .AppendLine( $"Upload Std Dev (Mbps): {vGigaClearByDay.StdUpMbps:N2}" )
+                .AppendLine( $"Average Download Speed (Mbps):\t<strong>{vGigaClearByDay.AvgDownMbps:N2}</strong>,\tDownload Std Dev (Mbps):\t<strong>{vGigaClearByDay.StdDownMbps:N2}</strong>" )
+                .AppendLine( $"Average Upload Speed (Mbps):\t<strong>{vGigaClearByDay.AvgUpMbps:N2}</strong>,\tUpload Std Dev (Mbps):\t<strong>{vGigaClearByDay.StdUpMbps:N2}</strong>" )
                 .ToString()
             : "No data available for the specified date.";
 
-        var escapedContent = WebUtility.HtmlEncode( emailBody );
-        sb.AppendLine( escapedContent )
+        //var escapedContent = WebUtility.HtmlEncode( emailBody );
+        sb.AppendLine( emailBody )
           .AppendLine( "        </div>" )
           .AppendLine( "    </div>" );
-
-        // Embed drive table if supplied (already HTML, do not encode)
-        if ( !string.IsNullOrWhiteSpace( driveTableHtml ) )
-        {
-            sb.AppendLine( "    <div class='section'>" )
-              .AppendLine( "        <h3 style='font-family:Segoe UI,Arial;margin:0 0 4px 0;'>PC Drive Health</h3>" )
-              .AppendLine( driveTableHtml )
-              .AppendLine( "    </div>" );
-        }
-        else
-        {
-            // Provide an example table if not supplied so recipient sees expected layout
-            sb.AppendLine( "    <div class='section'>" )
-              .AppendLine( "        <h3 style='font-family:Segoe UI,Arial;margin:0 0 4px 0;'>PC Drive Health (Example)</h3>" )
-              .AppendLine( FormatEmailDrives( new []
-                {
-                    new DriveHealthRow("C:", 476.94, 120.55, 25.3, false),
-                    new DriveHealthRow("D:", 931.51, 45.11, 4.8, true)
-                } ) )
-              .AppendLine( "    </div>" );
-        }
 
         sb.AppendLine( "    <div class='footer'>" )
           .AppendLine( "        <p>This is an automated report from Internet Speed Test Application.</p>" )
