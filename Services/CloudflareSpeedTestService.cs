@@ -1,13 +1,19 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
+
+using static InternetSpeedTest.DataModels.InternetSpeedJSON;
 
 namespace InternetSpeedTest.Services;
 
@@ -15,18 +21,53 @@ public class CloudflareSpeedTestService
 {
     private readonly HttpClient _httpClient;
     private readonly ILogger<CloudflareSpeedTestService> _logger;
+    private readonly int _parallelConnections;
+    private readonly int _testDurationSeconds;
+    private readonly int _warmupDurationSeconds;
+    
     private const string BaseUrl = "https://speed.cloudflare.com";
     private const string TraceUrl = $"{BaseUrl}/cdn-cgi/trace";
     private const string DownloadUrl = $"{BaseUrl}/__down";
     private const string UploadUrl = $"{BaseUrl}/__up";
+    private const int BufferSize = 1024 * 1024; // 1MB buffer for streaming
 
-    public CloudflareSpeedTestService(ILogger<CloudflareSpeedTestService> logger)
+    public CloudflareSpeedTestService(ILogger<CloudflareSpeedTestService> logger, IConfiguration configuration)
     {
         _logger = logger;
-        _httpClient = new HttpClient
+
+        using var _ = HelperLib.BeginMethodScope();
+
+        // Read configuration values with defaults
+        _parallelConnections = configuration.GetValue( "SpeedTest:Cloudflare:ParallelConnections", 4 );
+        _testDurationSeconds = configuration.GetValue( "SpeedTest:Cloudflare:TestDurationSeconds", 10 );
+        _warmupDurationSeconds = configuration.GetValue( "SpeedTest:Cloudflare:WarmupDurationSeconds", 2 );
+        
+        _logger.LogInformation( "Cloudflare speed test configured: {Connections} connections, {TestDuration}s test, {WarmupDuration}s warmup", 
+            _parallelConnections, _testDurationSeconds, _warmupDurationSeconds );
+        
+        // Create optimized HTTP handler
+        var handler = new SocketsHttpHandler
         {
-            Timeout = TimeSpan.FromMinutes( 4 ) // Allow up to 4 minutes for speed tests
+            PooledConnectionLifetime = TimeSpan.FromMinutes( 5 ),
+            PooledConnectionIdleTimeout = TimeSpan.FromMinutes( 2 ),
+            MaxConnectionsPerServer = _parallelConnections * 2, // Allow extra connections
+            EnableMultipleHttp2Connections = true,
+            UseCookies = false, // Disable cookies for performance
+            UseProxy = false, // Bypass proxy for accurate testing
+            ConnectTimeout = TimeSpan.FromSeconds( 10 ),
+            ResponseDrainTimeout = TimeSpan.FromSeconds( 5 )
         };
+        
+        _httpClient = new HttpClient( handler )
+        {
+            Timeout = TimeSpan.FromMinutes( 5 ),
+            DefaultRequestVersion = HttpVersion.Version20, // Prefer HTTP/2
+            DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower
+        };
+        
+        // Set optimized headers
+        _httpClient.DefaultRequestHeaders.Add( "User-Agent", "CloudflareSpeedTest/1.0" );
+        _httpClient.DefaultRequestHeaders.Add( "Accept-Encoding", "identity" ); // Disable compression for accurate measurements
     }
 
     public async Task<CloudflareSpeedTestResult> RunSpeedTestAsync(CancellationToken cancellationToken = default)
@@ -154,96 +195,217 @@ public class CloudflareSpeedTestService
     {
         using var _ = HelperLib.BeginMethodScope();
 
-        // Progressive download test - start small and increase size
-        var testSizes = new[] { 1_000_000, 10_000_000, 50_000_000, 250_000_000, 1_000_000_000, 2_000_000_000 }; // 1MB, 10MB, 50MB, 250MB, 1GB, 2GB
-        var bestSpeed = 0.0;
+        _logger.LogInformation( "Starting parallel download test with {Connections} connections", _parallelConnections );
 
-        foreach ( var size in testSizes )
-        {
-            try
-            {
-                var stopwatch = Stopwatch.StartNew();
-                var response = await _httpClient.GetAsync( $"{DownloadUrl}?bytes={size}", cancellationToken );
-                var data = await response.Content.ReadAsByteArrayAsync( cancellationToken );
-                stopwatch.Stop();
+        // Warmup phase - establish connections and overcome TCP slow-start
+        await WarmupConnectionsAsync( isDownload: true, cancellationToken );
 
-                if ( data.Length == size ) // Verify we got the expected amount of data
-                {
-                    var speed = size / stopwatch.Elapsed.TotalSeconds;
-                    bestSpeed = Math.Max( bestSpeed, speed );
-                    _logger.LogInformation( "Download test {Size}MB: {Speed:F2} Mbps", size / 1_000_000.0, speed / 1_000_000.0 * 8 );
-                }
-                else
-                {
-                    _logger.LogWarning( "Download test returned unexpected size {ReceivedSize} for requested {RequestedSize}", data.Length, size );
-                    break; // Stop if we don't get the expected data size
-                }
-            }
-            catch ( Exception ex )
-            {
-                _logger.LogError( ex, "Download test failed for size {Size}", size );
-                break; // Don't try larger sizes if smaller ones fail
-            }
-        }
+        // Use a large size that will ensure we test for the full duration
+        const long testSizePerConnection = 500_000_000L; // 500MB per connection
+        var totalBytesTransferred = 0L;
+        var testStopwatch = Stopwatch.StartNew();
+        
+        // Create parallel download tasks
+        var downloadTasks = Enumerable.Range( 0, _parallelConnections )
+            .Select( connectionId => DownloadStreamAsync( connectionId, testSizePerConnection, testStopwatch, cancellationToken ) )
+            .ToArray();
 
-        _logger.LogInformation( "Download - bestSpeed: {Speed:F2} Mbps", bestSpeed / 1_000_000.0 * 8 );
+        // Wait for all downloads to complete or timeout
+        var completedTasks = await Task.WhenAll( downloadTasks );
+        testStopwatch.Stop();
+
+        // Sum up bytes transferred from all connections
+        totalBytesTransferred = completedTasks.Sum();
+        
+        var actualDurationSeconds = testStopwatch.Elapsed.TotalSeconds;
+        var totalSpeed = totalBytesTransferred / actualDurationSeconds;
+        
+        _logger.LogInformation( "Download completed: {BytesTransferred:N0} bytes in {Duration:F2}s = {Speed:F2} Mbps", 
+            totalBytesTransferred, actualDurationSeconds, totalSpeed / 1_000_000.0 * 8 );
 
         return new CloudflareSpeedResult
         {
-            Bandwidth = (long)bestSpeed
+            Bandwidth = (long)totalSpeed
         };
+    }
+    
+    private async Task<long> DownloadStreamAsync(int connectionId, long maxBytes, Stopwatch testStopwatch, CancellationToken cancellationToken)
+    {
+        var totalBytesRead = 0L;
+        var buffer = new byte[BufferSize];
+        
+        try
+        {
+            var requestUri = $"{DownloadUrl}?bytes={maxBytes}&connection={connectionId}";
+            using var response = await _httpClient.GetAsync( requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken );
+            using var stream = await response.Content.ReadAsStreamAsync( cancellationToken );
+            
+            while ( testStopwatch.Elapsed.TotalSeconds < _testDurationSeconds && !cancellationToken.IsCancellationRequested )
+            {
+                var bytesRead = await stream.ReadAsync( buffer, 0, buffer.Length, cancellationToken );
+                if ( bytesRead == 0 ) break; // End of stream
+                
+                totalBytesRead += bytesRead;
+            }
+        }
+        catch ( Exception ex )
+        {
+            _logger.LogWarning( ex, "Download stream {ConnectionId} failed after {Bytes} bytes", connectionId, totalBytesRead );
+        }
+        
+        return totalBytesRead;
     }
 
     private async Task<CloudflareSpeedResult> MeasureUploadAsync(CancellationToken cancellationToken)
     {
         using var _ = HelperLib.BeginMethodScope();
 
-        // Progressive upload test
-        var testSizes = new[] { 1_000_000, 10_000_000, 50_000_000, 250_000_000, 500_000_000 }; // 1MB, 10MB, 50MB, 250MB, 500MB
-        var bestSpeed = 0.0;
+        _logger.LogInformation( "Starting parallel upload test with {Connections} connections", _parallelConnections );
 
-        foreach ( var size in testSizes )
-        {
-            try
-            {
-                var data = new byte[size];
-                // Fill with random data to prevent compression
-                new Random().NextBytes( data );
+        // Warmup phase - establish connections
+        await WarmupConnectionsAsync( isDownload: false, cancellationToken );
 
-                var content = new ByteArrayContent( data );
-                content.Headers.Add( "Content-Type", "application/octet-stream" );
+        var totalBytesTransferred = 0L;
+        var testStopwatch = Stopwatch.StartNew();
+        
+        // Create parallel upload tasks
+        var uploadTasks = Enumerable.Range( 0, _parallelConnections )
+            .Select( connectionId => UploadStreamAsync( connectionId, testStopwatch, cancellationToken ) )
+            .ToArray();
 
-                var stopwatch = Stopwatch.StartNew();
-                var response = await _httpClient.PostAsync( UploadUrl, content, cancellationToken );
-                stopwatch.Stop();
+        // Wait for all uploads to complete or timeout
+        var completedTasks = await Task.WhenAll( uploadTasks );
+        testStopwatch.Stop();
 
-                if ( response.IsSuccessStatusCode )
-                {
-                    var speed = size / stopwatch.Elapsed.TotalSeconds;
-                    bestSpeed = Math.Max( bestSpeed, speed );
-                    _logger.LogInformation( "Upload test {Size}MB: {Speed:F2} Mbps", size / 1_000_000.0, speed / 1_000_000.0 * 8 );
-                }
-                else
-                {
-                    _logger.LogWarning( "Upload test failed for size {Size}MB: {StatusCode}, ReasonPhrase: {ReasonPhrase}",
-                        size / 1_000_000.0,
-                        response.StatusCode,
-                        response.ReasonPhrase );
-                    break; // Stop if upload fails
-                }
-            }
-            catch ( Exception ex )
-            {
-                _logger.LogError( ex, "Upload test failed for size {Size}", size );
-                break;
-            }
-        }
-        _logger.LogInformation( "Upload - bestSpeed: {Speed:F2} Mbps", bestSpeed / 1_000_000.0 * 8 );
+        // Sum up bytes transferred from all connections
+        totalBytesTransferred = completedTasks.Sum();
+        
+        var actualDurationSeconds = testStopwatch.Elapsed.TotalSeconds;
+        var totalSpeed = totalBytesTransferred / actualDurationSeconds;
+        
+        _logger.LogInformation( "Upload completed: {BytesTransferred:N0} bytes in {Duration:F2}s = {Speed:F2} Mbps", 
+            totalBytesTransferred, actualDurationSeconds, totalSpeed / 1_000_000.0 * 8 );
 
         return new CloudflareSpeedResult
         {
-            Bandwidth = (long)bestSpeed
+            Bandwidth = (long)totalSpeed
         };
+    }
+    
+    private async Task<long> UploadStreamAsync(int connectionId, Stopwatch testStopwatch, CancellationToken cancellationToken)
+    {
+        var totalBytesUploaded = 0L;
+        var chunkSize = BufferSize; // 1MB chunks
+        
+        try
+        {
+            while ( testStopwatch.Elapsed.TotalSeconds < _testDurationSeconds && !cancellationToken.IsCancellationRequested )
+            {
+                // Generate random data to prevent compression
+                var data = new byte[chunkSize];
+                Random.Shared.NextBytes( data );
+                
+                var content = new ByteArrayContent( data );
+                content.Headers.Add( "Content-Type", "application/octet-stream" );
+                content.Headers.Add( "X-Connection-Id", connectionId.ToString() );
+                
+                var response = await _httpClient.PostAsync( UploadUrl, content, cancellationToken );
+                
+                if ( response.IsSuccessStatusCode )
+                {
+                    totalBytesUploaded += chunkSize;
+                }
+                else
+                {
+                    _logger.LogWarning( "Upload chunk failed for connection {ConnectionId}: {StatusCode}", 
+                        connectionId, response.StatusCode );
+                    break;
+                }
+            }
+        }
+        catch ( Exception ex )
+        {
+            _logger.LogWarning( ex, "Upload stream {ConnectionId} failed after {Bytes} bytes", connectionId, totalBytesUploaded );
+        }
+        
+        return totalBytesUploaded;
+    }
+
+    private async Task WarmupConnectionsAsync(bool isDownload, CancellationToken cancellationToken)
+    {
+        _logger.LogInformation( "Warming up connections for {TestType}...", isDownload ? "download" : "upload" );
+        
+        var warmupTasks = new List<Task>();
+        
+        for ( int i = 0; i < _parallelConnections; i++ )
+        {
+            if ( isDownload )
+            {
+                // Small download to establish connection
+                warmupTasks.Add( WarmupDownloadConnectionAsync( i, cancellationToken ) );
+            }
+            else
+            {
+                // Small upload to establish connection
+                warmupTasks.Add( WarmupUploadConnectionAsync( i, cancellationToken ) );
+            }
+        }
+        
+        try
+        {
+            await Task.WhenAll( warmupTasks );
+            _logger.LogInformation( "Connection warmup completed" );
+        }
+        catch ( Exception ex )
+        {
+            _logger.LogWarning( ex, "Some warmup connections failed, continuing with test" );
+        }
+    }
+    
+    private async Task WarmupDownloadConnectionAsync(int connectionId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var warmupSize = 100_000; // 100KB warmup
+            var requestUri = $"{DownloadUrl}?bytes={warmupSize}&warmup={connectionId}";
+            using var response = await _httpClient.GetAsync( requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken );
+            using var stream = await response.Content.ReadAsStreamAsync( cancellationToken );
+            
+            var buffer = new byte[8192];
+            var totalRead = 0;
+            var startTime = Stopwatch.GetTimestamp();
+            
+            while ( totalRead < warmupSize && Stopwatch.GetElapsedTime( startTime ).TotalSeconds < _warmupDurationSeconds )
+            {
+                var bytesRead = await stream.ReadAsync( buffer, 0, buffer.Length, cancellationToken );
+                if ( bytesRead == 0 ) break;
+                totalRead += bytesRead;
+            }
+        }
+        catch ( Exception ex )
+        {
+            _logger.LogDebug( ex, "Warmup download connection {ConnectionId} failed", connectionId );
+        }
+    }
+    
+    private async Task WarmupUploadConnectionAsync(int connectionId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var warmupData = new byte[50_000]; // 50KB warmup
+            Random.Shared.NextBytes( warmupData );
+            
+            var content = new ByteArrayContent( warmupData );
+            content.Headers.Add( "Content-Type", "application/octet-stream" );
+            content.Headers.Add( "X-Warmup", connectionId.ToString() );
+            
+            using var response = await _httpClient.PostAsync( UploadUrl, content, cancellationToken );
+            // Just ensure the request completes successfully
+        }
+        catch ( Exception ex )
+        {
+            _logger.LogDebug( ex, "Warmup upload connection {ConnectionId} failed", connectionId );
+        }
     }
 
     public void Dispose()
@@ -292,7 +454,7 @@ public class CloudflareSpeedTestResult
             result = new
             {
                 id = "cloudflare",
-                url = $"Cloudflare - {Server.Location}"
+                url = $"Revised 2025-09-19. Cloudflare - {Server.Colo} {Server.Location}"
             },
             server = new
             {

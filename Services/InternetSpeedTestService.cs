@@ -34,6 +34,8 @@ internal sealed class InternetSpeedTestService(
 
     public async Task<string> RunAsync(CancellationToken cancellationToken = default)
     {
+        using var _ = HelperLib.BeginMethodScope();
+
         // Check if we should use Cloudflare instead of Ookla
         var useCloudflare = configuration.GetValue<bool>( "SpeedTest:UseCloudflare", false );
 

@@ -11,6 +11,7 @@ using Microsoft.Extensions.Hosting;
 using Serilog;
 
 using System; // For Exception / InvalidOperationException
+using System.Reflection;
 
 // Bootstrap host with Serilog integrated so ILogger<T> routes to Serilog sinks defined in appsettings.json
 Log.Logger = new LoggerConfiguration()
@@ -43,6 +44,20 @@ try
             services.AddScoped<IInternetSpeedTestService, InternetSpeedTestService>();
         } )
         .Build();
+
+    // Display version information AFTER Serilog is fully configured (writes to configured sinks)
+    var assembly = Assembly.GetExecutingAssembly();
+    var version = assembly.GetName().Version;
+    var fileVersion = assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
+
+    // Include build date in yyMMdd format alongside file version
+    var buildDate = System.IO.File.GetLastWriteTime( assembly.Location );
+    var fileVersionWithDate = fileVersion is not null ? $"{fileVersion} ({buildDate:yy-MM-dd})" : "Unknown";
+
+    Log.Information("InternetSpeedTest Starting");
+    Log.Information("Version: {Version}", version?.ToString() ?? "Unknown");
+    Log.Information("File Version: {FileVersion}", fileVersionWithDate);
+    Log.Information("======================================");
 
     // Run the service functions
     using var scope = host.Services.CreateScope();
