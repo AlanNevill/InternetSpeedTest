@@ -29,7 +29,7 @@ public class CloudflareSpeedTestService
     private const string TraceUrl = $"{BaseUrl}/cdn-cgi/trace";
     private const string DownloadUrl = $"{BaseUrl}/__down";
     private const string UploadUrl = $"{BaseUrl}/__up";
-    private const int BufferSize = 1024 * 1024; // 1MB buffer for streaming
+    private const int BufferSize = 1024 * 1024; // 1MB buffer for streaming upload test
 
     public CloudflareSpeedTestService(ILogger<CloudflareSpeedTestService> logger, IConfiguration configuration)
     {
@@ -195,13 +195,15 @@ public class CloudflareSpeedTestService
     {
         using var _ = HelperLib.BeginMethodScope();
 
-        _logger.LogInformation( "Starting parallel download test with {Connections} connections", _parallelConnections );
 
         // Warmup phase - establish connections and overcome TCP slow-start
         await WarmupConnectionsAsync( isDownload: true, cancellationToken );
 
         // Use a large size that will ensure we test for the full duration
         const long testSizePerConnection = 500_000_000L; // 500MB per connection
+
+        _logger.LogInformation( "Starting parallel download test with {Connections} connections and file size {testSizePerConnection:N0}", _parallelConnections, testSizePerConnection );
+
         var totalBytesTransferred = 0L;
         var testStopwatch = Stopwatch.StartNew();
         
