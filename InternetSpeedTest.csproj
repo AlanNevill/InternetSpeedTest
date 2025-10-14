@@ -5,22 +5,12 @@
     <LangVersion>preview</LangVersion>
     <Nullable>enable</Nullable>
     <UserSecretsId>1f54cc93-004f-43fb-9dfc-409b936b5788</UserSecretsId>
-    
-    <!-- Automatic Version Numbering -->
-    <MajorVersion>1</MajorVersion>
-    <MinorVersion>0</MinorVersion>
-    
-    <!-- Generate build number from current date (YYMM format) -->
-    <BuildNumber>$([System.DateTime]::Now.ToString("yyMM"))</BuildNumber>
-    
-    <!-- Generate revision from current time (HHmm format) -->
-    <RevisionNumber>$([System.DateTime]::Now.ToString("HHmm"))</RevisionNumber>
-    
-    <!-- Combine into full version -->
-    <AssemblyVersion>$(MajorVersion).$(MinorVersion).$(BuildNumber).$(RevisionNumber)</AssemblyVersion>
-    <FileVersion>$(AssemblyVersion)</FileVersion>
-    <Version>$(MajorVersion).$(MinorVersion).$(BuildNumber)</Version>
-    <InformationalVersion>$(Version)-$(RevisionNumber)</InformationalVersion>
+    <AssemblyVersion>1.0.0.1206</AssemblyVersion>
+    <FileVersion>2.0.0.0826</FileVersion>
+    <Version>1.0.7</Version>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+    <!-- Exclude any nested bin/obj folders (like EmailerUtility\obj) from being included as items/Compile in this project -->
+    <DefaultItemExcludes>$(DefaultItemExcludes);**\bin\**;**\obj\**</DefaultItemExcludes>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <Optimize>False</Optimize>
@@ -40,7 +30,6 @@
     <PrimaryVersionType>AssemblyVersionAttribute</PrimaryVersionType>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Serilog core + hosting integration, align versions to satisfy sinks -->
     <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="9.0.0" />
@@ -54,8 +43,27 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="9.0.9" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.9" />
-    <PackageReference Include="HtmlAgilityPack" Version="1.12.2" />
+    <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
   </ItemGroup>
+  <!-- Exclude the nested EmailerUtility folder from being compiled into this project -->
+  <ItemGroup>
+    <Compile Remove="EmailerUtility\**\*.cs" />
+    <EmbeddedResource Remove="EmailerUtility\**\*.*" />
+    <None Remove="EmailerUtility\**\*.*" />
+  </ItemGroup>
+
+  <!-- Toggle external EmailerUtility reference explicitly -->
+  <PropertyGroup>
+    <UseExternalEmailer>false</UseExternalEmailer>
+    <ExternalEmailerPath>..\Email\EmailerUtility\EmailerUtility.csproj</ExternalEmailerPath>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(UseExternalEmailer)'=='true' AND Exists('$(ExternalEmailerPath)')">
+    <ProjectReference Include="$(ExternalEmailerPath)" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(UseExternalEmailer)'!='true' OR !Exists('$(ExternalEmailerPath)')">
+    <ProjectReference Include="EmailerUtility\EmailerUtility.csproj" />
+  </ItemGroup>
+
   <ItemGroup>
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

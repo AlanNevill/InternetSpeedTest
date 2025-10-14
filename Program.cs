@@ -12,6 +12,7 @@ using Serilog;
 
 using System; // For Exception / InvalidOperationException
 using System.Reflection;
+using EmailerUtility; // new utility project
 
 // Bootstrap host with Serilog integrated so ILogger<T> routes to Serilog sinks defined in appsettings.json
 Log.Logger = new LoggerConfiguration()
@@ -42,22 +43,25 @@ try
 
             services.AddScoped<CloudflareSpeedTestService>();
             services.AddScoped<IInternetSpeedTestService, InternetSpeedTestService>();
+
+            // register emailer client with connection string
+            services.AddScoped<IEmailerClient>( _ => new EmailerClient( emailerConnectionString ) );
         } )
         .Build();
 
     // Display version information AFTER Serilog is fully configured (writes to configured sinks)
     var assembly = Assembly.GetExecutingAssembly();
-    var version = assembly.GetName().Version;
+    var assemblyVersion = assembly.GetName().Version;
     var fileVersion = assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
-
-    // Include build date in yyMMdd format alongside file version
-    var buildDate = System.IO.File.GetLastWriteTime( assembly.Location );
-    var fileVersionWithDate = fileVersion is not null ? $"{fileVersion} ({buildDate:yy-MM-dd})" : "Unknown";
+    var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+    var buildDate = System.IO.File.GetCreationTime( assembly.Location );
 
     Log.Information("InternetSpeedTest Starting");
-    Log.Information("Version: {Version}", version?.ToString() ?? "Unknown");
-    Log.Information("File Version: {FileVersion}", fileVersionWithDate);
-    Log.Information("======================================");
+    Log.Information("Assembly Version: {AssemblyVersion}", assemblyVersion?.ToString() ?? "Unknown");
+    Log.Information("File Version: {FileVersion}", fileVersion ?? "Unknown");
+    Log.Information("Package Version: {PackageVersion}", informationalVersion ?? "Unknown");
+    Log.Information("Build Date: {BuildDate:yyyy-MM-dd HH:mm:ss}", buildDate);
+    Log.Information("==========================================");
 
     // Run the service functions
     using var scope = host.Services.CreateScope();
