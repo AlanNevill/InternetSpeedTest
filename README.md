@@ -86,12 +86,7 @@ With these optimizations, Cloudflare speed tests should:
 ## Daily Reports
 The daily job performs:
 1. Internet speed summary for the previous day (aggregate stats)
-2. PC drive health check rendered as an HTML table:
 
-| Drive | Total (GB) | Free (GB) | Free % | Status |
-|-------|-----------:|----------:|-------:|:-------|
-| C:\\ | 476.94 | 120.55 | 25.3 | OK |
-| D:\\ | 931.51 | 45.11 | 4.8 | LOW |
 
 Drives with less than 10% free space are highlighted and marked LOW.
 
@@ -230,11 +225,8 @@ dotnet publish -c Release -r win-x64 --self-contained
 The application should be deployed to: `C:\ScheduledTasks\InternetSpeedTest`
 
 ```powershell
-# Publish to the deployment folder
-dotnet publish -c Release -o C:\ScheduledTasks\InternetSpeedTest
-
-# Or for self-contained deployment (includes .NET runtime)
-dotnet publish -c Release -r win-x64 --self-contained -o C:\ScheduledTasks\InternetSpeedTest
+# Publish to a specific output directory
+dotnet publish InternetSpeedTest.csproj -c Release -o C:\ScheduledTasks\InternetSpeedTest
 ```
 
 ### Post-Deployment Steps

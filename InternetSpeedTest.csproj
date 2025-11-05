@@ -49,13 +49,16 @@
     <PackageReference Include="Microsoft.Build.Tasks.Core" Version="17.14.28" />
     <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.14.28" />
     <!-- Local NuGet package for EmailerUtility -->
-    <PackageReference Include="EmailerUtility" Version="1.0.0" />
+	  <PackageReference Include="EmailerUtility" Version="0.1.14" />
   </ItemGroup>
   <!-- Exclude the nested EmailerUtility folder from being compiled into this project -->
   <ItemGroup>
     <Compile Remove="EmailerUtility\**\*.cs" />
+    <Compile Remove="Results\**" />
     <EmbeddedResource Remove="EmailerUtility\**\*.*" />
+    <EmbeddedResource Remove="Results\**" />
     <None Remove="EmailerUtility\**\*.*" />
+    <None Remove="Results\**" />
   </ItemGroup>
 
   <ItemGroup>

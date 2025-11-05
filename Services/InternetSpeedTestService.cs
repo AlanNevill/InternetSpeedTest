@@ -19,10 +19,10 @@ namespace InternetSpeedTest.Services;
 
 internal sealed class InternetSpeedTestService(
     IDbContextFactory<PopsContext> popsContextFactory,
-    IDbContextFactory<Emailer> emailerContextFactory,
     ILogger<InternetSpeedTestService> logger,
     IConfiguration configuration,
     CloudflareSpeedTestService cloudflareService,
+    EmailerUtility.EmailerClient _emailerClient,
     TimeProvider timeProvider)
     : IInternetSpeedTestService
 {
@@ -266,14 +266,14 @@ internal sealed class InternetSpeedTestService(
         logger.LogInformation( "Performing daily tasks for {Date}", yesterday.ToString( "yyyy-MM-dd" ) );
 
         // Summarise results for yesterday and email
-        await SummariseResultsYesterday( yesterday );
+        var result = await SummariseResultsYesterday( yesterday );
 
         // any more daily tasks can be added here
 
-        logger.LogInformation( "Daily tasks completed at {UtcNow} UTC", timeProvider.GetUtcNow() );
+        logger.LogInformation( "Daily tasks completed at {UtcNow} UTC, EmailMessageId: {result}", timeProvider.GetUtcNow(), result );
     }
 
-    private async Task SummariseResultsYesterday(DateTime yesterday)
+    private async Task<long> SummariseResultsYesterday(DateTime yesterday)
     {
         // get yesterday's summary from the database view
         var popsDb = popsContextFactory.CreateDbContext();
@@ -284,13 +284,18 @@ internal sealed class InternetSpeedTestService(
         // format the email body as HTML
         string formattedEmail = HelperLib.FormatEmailForAcs( vGigaClear4day! );
 
-        // send the email to the emailer service table
-        var result = await HelperLib.EmailerService_WriteMessage(
+        return await _emailerClient.EnqueueAsync(
+            toAddress: "alannevill@gmail.com",
             subject: $"Daily Internet Speed Test Report for {yesterday:yyyy-MM-dd}",
             bodyHtml: formattedEmail,
-            toAddress: "alannevill@gmail.com",
-            emailerDb: emailerContextFactory.CreateDbContext()
+            bodyText: HelperLib.HtmlToText( formattedEmail ),
+            priority: 1,
+           null,
+           null,
+           null,
+           fromAddress: "NoReply@InternetSpeedTest.local",
+           sourceServer: Environment.MachineName
         );
-        logger.LogInformation( "EmailerService_WriteMessage result: {Result}", result );
     }
+
 }

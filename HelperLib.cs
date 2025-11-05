@@ -189,38 +189,6 @@ public static class HelperLib
         return sb.ToString().TrimEnd();
     }
 
-    public static async Task<bool> EmailerService_WriteMessage(string subject, string bodyHtml, string toAddress, Emailer emailerDb)
-    {
-        using var _ = BeginMethodScopeLocal( "HelperLib" );
-        try
-        {
-            var bodyText = HtmlToText( bodyHtml );
-            var message = new EmailMessage
-            {
-                FromAddress = string.Empty,
-                Subject = subject,
-                BodyText = bodyText,
-                BodyHtml = bodyHtml,
-                Priority = 1,
-                Status = "Queued",
-                RetryCount = 0,
-                MaxRetries = 3,
-                CreatedAt = DateTime.UtcNow,
-                ScheduledAt = null,
-            };
-            Log.Information( "EmailCreate message object initialized" );
-            message.EmailRecipients.Add( new EmailRecipient { EmailAddress = toAddress, RecipientType = "To", Status = "Pending" } );
-            emailerDb.EmailMessages.Add( message );
-            await emailerDb.SaveChangesAsync();
-            Log.Information( "EmailCreate saved message with Id {Id}", message.MessageId );
-            return true;
-        }
-        catch ( Exception ex )
-        {
-            Log.Error( ex, "EmailCreate submit failed" );
-            return false;
-        }
-    }
 }
 
 // File-scoped helper class (C# 11+)

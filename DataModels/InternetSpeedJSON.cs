@@ -28,19 +28,19 @@ internal class InternetSpeedJSON
     public class Interface
     {
         [JsonPropertyName("internalIp")]
-        public string InternalIp { get; set; }
+        public required string InternalIp { get; set; }
 
         [JsonPropertyName("name")]
-        public string Name { get; set; }
+        public required string Name { get; set; }
 
         [JsonPropertyName("macAddr")]
-        public string MacAddr { get; set; }
+        public required string MacAddr { get; set; }
 
         [JsonPropertyName("isVpn")]
         public bool IsVpn { get; set; }
 
         [JsonPropertyName("externalIp")]
-        public string ExternalIp { get; set; }
+        public required string ExternalIp { get; set; }
     }
 
     public class Latency
@@ -76,10 +76,10 @@ internal class InternetSpeedJSON
     public class Result
     {
         [JsonPropertyName("id")]
-        public string Id { get; set; }
+        public required string Id { get; set; }
 
         [JsonPropertyName("url")]
-        public string Url { get; set; }
+        public required string Url { get; set; }
 
         [JsonPropertyName("persisted")]
         public bool Persisted { get; set; }
@@ -88,31 +88,31 @@ internal class InternetSpeedJSON
     public class Root
     {
         [JsonPropertyName("type")]
-        public string Type { get; set; }
+        public required string Type { get; set; }
 
         [JsonPropertyName("timestamp")]
-        public DateTime Timestamp { get; set; }
+        public required DateTime Timestamp { get; set; }
 
         [JsonPropertyName("ping")]
-        public Ping Ping { get; set; }
+        public required Ping Ping { get; set; }
 
         [JsonPropertyName("download")]
-        public Download Download { get; set; }
+        public required Download Download { get; set; }
 
         [JsonPropertyName("upload")]
-        public Upload Upload { get; set; }
+        public required Upload Upload { get; set; }
 
         [JsonPropertyName("isp")]
-        public string Isp { get; set; }
+        public required string Isp { get; set; }
 
         [JsonPropertyName("interface")]
-        public Interface Interface { get; set; }
+        public required Interface Interface { get; set; }
 
         [JsonPropertyName("server")]
-        public Server Server { get; set; }
+        public required Server Server { get; set; }
 
         [JsonPropertyName("result")]
-        public Result Result { get; set; }
+        public required Result Result { get; set; }
     }
 
     public class Server
@@ -121,22 +121,22 @@ internal class InternetSpeedJSON
         public int Id { get; set; }
 
         [JsonPropertyName("host")]
-        public string Host { get; set; }
+        public required string Host { get; set; }
 
         [JsonPropertyName("port")]
         public int Port { get; set; }
 
         [JsonPropertyName("name")]
-        public string Name { get; set; }
+        public required string Name { get; set; }
 
         [JsonPropertyName("location")]
-        public string Location { get; set; }
+        public required string Location { get; set; }
 
         [JsonPropertyName("country")]
-        public string Country { get; set; }
+        public required string Country { get; set; }
 
         [JsonPropertyName("ip")]
-        public string Ip { get; set; }
+        public required string Ip { get; set; }
     }
 
     public class Upload
@@ -151,7 +151,7 @@ internal class InternetSpeedJSON
         public int Elapsed { get; set; }
 
         [JsonPropertyName("latency")]
-        public Latency Latency { get; set; }
+        public required Latency Latency { get; set; }
     }
 
 

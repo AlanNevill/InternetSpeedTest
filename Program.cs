@@ -1,4 +1,6 @@
-﻿using InternetSpeedTest; // For IInternetSpeedTestService interface
+﻿using EmailerUtility.DependencyInjection;
+
+using InternetSpeedTest; // For IInternetSpeedTestService interface
 using InternetSpeedTest.DataModels;
 using InternetSpeedTest.DataModels.Emailer;
 using InternetSpeedTest.Services;
@@ -12,7 +14,6 @@ using Serilog;
 
 using System; // For Exception / InvalidOperationException
 using System.Reflection;
-using EmailerUtility; // new utility project
 
 // Bootstrap host with Serilog integrated so ILogger<T> routes to Serilog sinks defined in appsettings.json
 Log.Logger = new LoggerConfiguration()
@@ -48,8 +49,10 @@ try
             services.AddScoped<CloudflareSpeedTestService>();
             services.AddScoped<IInternetSpeedTestService, InternetSpeedTestService>();
 
-            // register emailer client with connection string
-            services.AddScoped<IEmailerClient>( _ => new EmailerClient( emailerConnectionString ) );
+            // EmailerUtility registration (uses ConnectionStrings:Emailer automatically)
+            services.AddEmailerUtility( ctx.Configuration );
+            // Explicit registration for EmailerClient if not added by extension
+            services.AddTransient<EmailerUtility.EmailerClient>();
         } )
         .Build();
 
