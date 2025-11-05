@@ -221,13 +221,18 @@ public static class HelperLib
             return false;
         }
     }
+}
 
-    private sealed class CompositeDisposable : IDisposable
+// File-scoped helper class (C# 11+)
+file sealed class CompositeDisposable(IDisposable first, IDisposable second) : IDisposable
+{
+    private bool _disposed;
+    
+    public void Dispose()
     {
-        private readonly IDisposable _first;
-        private readonly IDisposable _second;
-        private bool _disposed;
-        public CompositeDisposable(IDisposable first, IDisposable second) { _first = first; _second = second; }
-        public void Dispose() { if ( _disposed ) return; _disposed = true; try { _second.Dispose(); } finally { _first.Dispose(); } }
+        if ( _disposed ) return;
+        _disposed = true;
+        try { second.Dispose(); }
+        finally { first.Dispose(); }
     }
 }

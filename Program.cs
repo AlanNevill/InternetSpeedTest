@@ -33,13 +33,17 @@ try
         {
             var config = ctx.Configuration;
 
-            var connectionString = config.GetConnectionString( "connLocal" )
-                ?? throw new InvalidOperationException( "Connection string 'connLocal' is not configured." );
-            var emailerConnectionString = config.GetConnectionString( "Emailer" )
-                ?? throw new InvalidOperationException( "Connection string 'Emailer' is not configured." );
+            var connectionString = config.GetConnectionString( "connLocal" );
+            ArgumentNullException.ThrowIfNullOrWhiteSpace( connectionString, nameof( connectionString ) );
+            
+            var emailerConnectionString = config.GetConnectionString( "Emailer" );
+            ArgumentNullException.ThrowIfNullOrWhiteSpace( emailerConnectionString, nameof( emailerConnectionString ) );
 
             services.AddDbContextFactory<PopsContext>( options => options.UseSqlServer( connectionString ) );
             services.AddDbContextFactory<Emailer>( options => options.UseSqlServer( emailerConnectionString ) );
+
+            // Register TimeProvider for better testability
+            services.AddSingleton( TimeProvider.System );
 
             services.AddScoped<CloudflareSpeedTestService>();
             services.AddScoped<IInternetSpeedTestService, InternetSpeedTestService>();

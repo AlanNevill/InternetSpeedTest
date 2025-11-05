@@ -22,7 +22,8 @@ internal sealed class InternetSpeedTestService(
     IDbContextFactory<Emailer> emailerContextFactory,
     ILogger<InternetSpeedTestService> logger,
     IConfiguration configuration,
-    CloudflareSpeedTestService cloudflareService)
+    CloudflareSpeedTestService cloudflareService,
+    TimeProvider timeProvider)
     : IInternetSpeedTestService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
@@ -65,8 +66,8 @@ internal sealed class InternetSpeedTestService(
     {
         using var _ = HelperLib.BeginMethodScope();
 
-        // Check if already run today
-        var today = DateTime.UtcNow.Date;
+        // Check if already run today - using TimeProvider for testability
+        var today = timeProvider.GetUtcNow().Date;
         DailyState state;
 
         try
@@ -91,7 +92,7 @@ internal sealed class InternetSpeedTestService(
         await DoDailyTasksAsync( cancellationToken );
 
         // Update state and persist to json file
-        state.LastDailyRunUtc = DateTime.UtcNow;
+        state.LastDailyRunUtc = timeProvider.GetUtcNow().DateTime;
         try
         {
             await SaveDailyStateAsync( state, cancellationToken );
@@ -259,8 +260,8 @@ internal sealed class InternetSpeedTestService(
     {
         using var _ = HelperLib.BeginMethodScope();
 
-        // get yesterday's date in UTC
-        var yesterday = DateTime.UtcNow.Date.AddDays( -1 );
+        // get yesterday's date using TimeProvider
+        var yesterday = timeProvider.GetUtcNow().Date.AddDays( -1 );
 
         logger.LogInformation( "Performing daily tasks for {Date}", yesterday.ToString( "yyyy-MM-dd" ) );
 
@@ -269,7 +270,7 @@ internal sealed class InternetSpeedTestService(
 
         // any more daily tasks can be added here
 
-        logger.LogInformation( "Daily tasks completed at {UtcNow} UTC", DateTime.UtcNow );
+        logger.LogInformation( "Daily tasks completed at {UtcNow} UTC", timeProvider.GetUtcNow() );
     }
 
     private async Task SummariseResultsYesterday(DateTime yesterday)
