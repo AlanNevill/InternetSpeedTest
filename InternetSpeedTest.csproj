@@ -11,6 +11,8 @@
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
     <!-- Exclude any nested bin/obj folders (like EmailerUtility\obj) from being included as items/Compile in this project -->
     <DefaultItemExcludes>$(DefaultItemExcludes);**\bin\**;**\obj\**</DefaultItemExcludes>
+    <!-- Local NuGet package source -->
+    <RestoreAdditionalProjectSources>$(MSBuildProjectDirectory)\LocalPackages</RestoreAdditionalProjectSources>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <Optimize>False</Optimize>
@@ -33,7 +35,7 @@
     <PackageReference Include="Serilog" Version="4.3.0" />
     <PackageReference Include="Serilog.Extensions.Hosting" Version="9.0.0" />
     <PackageReference Include="Serilog.Settings.Configuration" Version="9.0.0" />
-    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1" />
     <PackageReference Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0-rc.2.25502.107" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" Version="10.0.0-rc.2.25502.107" />
@@ -46,24 +48,14 @@
     <PackageReference Include="HtmlAgilityPack" Version="1.12.4" />
     <PackageReference Include="Microsoft.Build.Tasks.Core" Version="17.14.28" />
     <PackageReference Include="Microsoft.Build.Utilities.Core" Version="17.14.28" />
+    <!-- Local NuGet package for EmailerUtility -->
+    <PackageReference Include="EmailerUtility" Version="1.0.0" />
   </ItemGroup>
   <!-- Exclude the nested EmailerUtility folder from being compiled into this project -->
   <ItemGroup>
     <Compile Remove="EmailerUtility\**\*.cs" />
     <EmbeddedResource Remove="EmailerUtility\**\*.*" />
     <None Remove="EmailerUtility\**\*.*" />
-  </ItemGroup>
-
-  <!-- Toggle external EmailerUtility reference explicitly -->
-  <PropertyGroup>
-    <UseExternalEmailer>false</UseExternalEmailer>
-    <ExternalEmailerPath>..\Email\EmailerUtility\EmailerUtility.csproj</ExternalEmailerPath>
-  </PropertyGroup>
-  <ItemGroup Condition="'$(UseExternalEmailer)'=='true' AND Exists('$(ExternalEmailerPath)')">
-    <ProjectReference Include="$(ExternalEmailerPath)" />
-  </ItemGroup>
-  <ItemGroup Condition="'$(UseExternalEmailer)'!='true' OR !Exists('$(ExternalEmailerPath)')">
-    <ProjectReference Include="EmailerUtility\EmailerUtility.csproj" />
   </ItemGroup>
 
   <ItemGroup>
