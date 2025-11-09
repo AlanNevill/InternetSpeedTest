@@ -436,20 +436,30 @@ public class CloudflareSpeedTestResult
             },
             download = new
             {
-                bandwidth = Download.Bandwidth,
-                bytes = Download.Bandwidth * 8, // Estimate bytes transferred
-                elapsed = 8000 // Estimate in milliseconds
+                bandwidth = (int)Math.Min( Download.Bandwidth, int.MaxValue ), // Cast to int with overflow protection
+                bytes = (int)Math.Min( Download.Bandwidth * 8, int.MaxValue ),
+                elapsed = 8000
             },
             upload = new
             {
-                bandwidth = Upload.Bandwidth,
-                bytes = Upload.Bandwidth * 5,
+                bandwidth = (int)Math.Min( Upload.Bandwidth, int.MaxValue ), // Cast to int with overflow protection
+                bytes = (int)Math.Min( Upload.Bandwidth * 5, int.MaxValue ),
                 elapsed = 5000
+            },
+            isp = "Unknown", // Required property for deserialization
+            @interface = new // Required property for deserialization
+            {
+                internalIp = Server.ClientIp ?? "Unknown",
+                name = "Unknown",
+                macAddr = "Unknown",
+                isVpn = false,
+                externalIp = Server.ClientIp ?? "Unknown"
             },
             result = new
             {
                 id = "cloudflare",
-                url = $"Revised 2025-09-19. Cloudflare - {Server.Colo} {Server.Location}"
+                url = $"Revised 2025-09-19. Cloudflare - {Server.Colo} {Server.Location}",
+                persisted = true
             },
             server = new
             {

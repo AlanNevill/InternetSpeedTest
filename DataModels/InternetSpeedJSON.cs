@@ -151,7 +151,7 @@ internal class InternetSpeedJSON
         public int Elapsed { get; set; }
 
         [JsonPropertyName("latency")]
-        public required Latency Latency { get; set; }
+        public Latency? Latency { get; set; }
     }
 
 
