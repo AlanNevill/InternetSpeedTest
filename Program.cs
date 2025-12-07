@@ -36,7 +36,7 @@ try
 
             var connectionString = config.GetConnectionString( "connLocal" );
             ArgumentNullException.ThrowIfNullOrWhiteSpace( connectionString, nameof( connectionString ) );
-            
+
             var emailerConnectionString = config.GetConnectionString( "Emailer" );
             ArgumentNullException.ThrowIfNullOrWhiteSpace( emailerConnectionString, nameof( emailerConnectionString ) );
 
@@ -62,13 +62,16 @@ try
     var fileVersion = assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
     var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
     var buildDate = System.IO.File.GetCreationTime( assembly.Location );
+    var packageVersion = informationalVersion?.Split( '+' )[0]; // Extract version before '+' metadata
 
-    Log.Information("InternetSpeedTest Starting");
-    Log.Information("Assembly Version: {AssemblyVersion}", assemblyVersion?.ToString() ?? "Unknown");
-    Log.Information("File Version: {FileVersion}", fileVersion ?? "Unknown");
-    Log.Information("Package Version: {PackageVersion}", informationalVersion ?? "Unknown");
-    Log.Information("Build Date: {BuildDate:yyyy-MM-dd HH:mm:ss}", buildDate);
-    Log.Information("==========================================");
+    using var _ = HelperLib.BeginMethodScope("Program");
+
+    Log.Information( "InternetSpeedTest Starting" );
+    //Log.Information( "Assembly Version: {AssemblyVersion}", assemblyVersion?.ToString() ?? "Unknown" );
+    //Log.Information( "File Version: {FileVersion}", fileVersion ?? "Unknown" );
+    Log.Information( "Package Version: {PackageVersion}", packageVersion ?? informationalVersion ?? "Unknown" );
+    Log.Information( "Build Date: {BuildDate:yyyy-MM-dd HH:mm:ss}", buildDate );
+    Log.Information( "=========================================================" );
 
     // Run the service functions
     using var scope = host.Services.CreateScope();

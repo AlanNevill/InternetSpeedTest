@@ -76,14 +76,14 @@ internal sealed class InternetSpeedTestService(
         }
         catch ( Exception ex )
         {
-            logger.LogWarning( ex, "Failed to load daily state; proceeding as if never run" );
+            logger.LogWarning( ex, "Failed to load daily state; proceeding as if never run." );
             state = new DailyState();
         }
 
         if ( state.LastDailyRunUtc?.Date == today )
         {
             // Already ran today
-            logger.LogInformation( "Daily tasks have already been run today" );
+            logger.LogInformation( "Daily tasks have already been run today." );
 
             return false;
         }
@@ -99,7 +99,7 @@ internal sealed class InternetSpeedTestService(
         }
         catch ( Exception ex )
         {
-            logger.LogWarning( ex, "Failed to persist daily state to {Path}", _dailyStatePath );
+            logger.LogWarning( ex, "Failed to persist daily state to {Path}.", _dailyStatePath );
         }
 
         return true;
