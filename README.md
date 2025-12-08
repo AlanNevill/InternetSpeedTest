@@ -156,8 +156,8 @@ Results are stored in the `InternetSpeed` table:
 
 Logs are written to:
 - **Console**: Real-time output during execution
-- **File**: `C:\\logs\\InternetSpeedTest\\InternetSpeedTest-{date}.log`
-- **Retention**: 10 files, 4MB each, daily rotation
+- **File**: `C:\\Synv\\logs\\BEELINK-1\\InternetSpeedTest-{date}.log`
+- **Retention**: 7 files, 4MB each, daily rotation
 
 ### Cloudflare Test Logging
 Detailed logging includes:

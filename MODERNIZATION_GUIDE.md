@@ -24,7 +24,7 @@ List<double> differences = [];
 
 ---
 
-### 2. **Primary Constructors** (C# 12+)
+### 2. **Primary Constructors** (C# 12+) - DONE
 **Before:**
 ```csharp
 public class CloudflareSpeedTestService
@@ -64,7 +64,7 @@ public class CloudflareSpeedTestService(
 
 ---
 
-### 3. **ArgumentNullException.ThrowIfNullOrWhiteSpace** (C# 11+)
+### 3. **ArgumentNullException.ThrowIfNullOrWhiteSpace** (C# 11+) - DONE
 **Before:**
 ```csharp
 var connectionString = config.GetConnectionString("connLocal")
@@ -86,7 +86,7 @@ ArgumentNullException.ThrowIfNullOrWhiteSpace(connectionString, nameof(connectio
 
 ---
 
-### 4. **TimeProvider Abstraction** (.NET 8+)
+### 4. **TimeProvider Abstraction** (.NET 8+) - DONE
 **Before:**
 ```csharp
 var today = DateTime.UtcNow.Date;
@@ -119,7 +119,7 @@ services.AddSingleton(TimeProvider.System);
 
 ---
 
-### 5. **File-Scoped Types** (C# 11+)
+### 5. **File-Scoped Types** (C# 11+) - DONE
 **Before:**
 ```csharp
 private sealed class CompositeDisposable : IDisposable
