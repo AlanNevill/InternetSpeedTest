@@ -352,7 +352,7 @@ public class CloudflareSpeedTestService(
     {
         try
         {
-            var warmupSize = 100_000; // 100KB warmup
+            var warmupSize = 500_000; // 500KB warmup
             var requestUri = $"{DownloadUrl}?bytes={warmupSize}&warmup={connectionId}";
             using var response = await _httpClient.GetAsync( requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken );
             using var stream = await response.Content.ReadAsStreamAsync( cancellationToken );
@@ -370,7 +370,7 @@ public class CloudflareSpeedTestService(
         }
         catch ( Exception ex )
         {
-            logger.LogError( ex, "Warmup download connection {ConnectionId} failed", connectionId );
+            logger.LogError( ex, "WarmupDownloadConnectionAsync - Warmup download connection {ConnectionId} failed", connectionId );
         }
     }
 
@@ -390,7 +390,7 @@ public class CloudflareSpeedTestService(
         }
         catch ( Exception ex )
         {
-            logger.LogError( ex, "Warmup upload connection {ConnectionId} failed", connectionId );
+            logger.LogError( ex, "WarmupUploadConnectionAsync - Warmup upload connection {ConnectionId} failed", connectionId );
         }
     }
 
