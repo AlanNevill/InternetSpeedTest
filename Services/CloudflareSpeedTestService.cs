@@ -21,6 +21,7 @@ public class CloudflareSpeedTestService(
     private readonly int _parallelConnections = configuration.GetValue( "SpeedTest:Cloudflare:ParallelConnections", 4 );
     private readonly int _testDurationSeconds = configuration.GetValue( "SpeedTest:Cloudflare:TestDurationSeconds", 10 );
     private readonly int _warmupDurationSeconds = configuration.GetValue( "SpeedTest:Cloudflare:WarmupDurationSeconds", 2 );
+    private readonly double _lowSpeedWarningMbps = configuration.GetValue( "SpeedTest:LowSpeedWarning", 100.0 );
 
     private const string BaseUrl = "https://speed.cloudflare.com";
     private const string TraceUrl = $"{BaseUrl}/cdn-cgi/trace";
@@ -53,8 +54,10 @@ public class CloudflareSpeedTestService(
         };
 
         // Set optimized headers
-        client.DefaultRequestHeaders.Add( "User-Agent", "CloudflareSpeedTest/1.0" );
-        client.DefaultRequestHeaders.Add( "Accept-Encoding", "identity" ); // Disable compression for accurate measurements
+        client.DefaultRequestHeaders.Add( "User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" );
+        client.DefaultRequestHeaders.Add( "Accept", "*/*" );
+        client.DefaultRequestHeaders.Add( "Origin", "https://speed.cloudflare.com" );
+        client.DefaultRequestHeaders.Add( "Referer", "https://speed.cloudflare.com/" );
 
         return client;
     }
@@ -82,11 +85,21 @@ public class CloudflareSpeedTestService(
 
             // Measure download speed
             result.Download = await MeasureDownloadAsync( cancellationToken );
-            logger.LogInformation( "Download: {Speed:F2} Mbps", result.Download.Bandwidth / 1_000_000.0 * 8 );
+            var downloadSpeedMbps = result.Download.Bandwidth / 1_000_000.0 * 8;
+            logger.LogInformation( "Download: {Speed:F2} Mbps", downloadSpeedMbps );
+            if ( downloadSpeedMbps < _lowSpeedWarningMbps )
+            {
+                logger.LogWarning( "Download speed {Speed:F2} Mbps is below threshold of {Threshold:F2} Mbps", downloadSpeedMbps, _lowSpeedWarningMbps );
+            }
 
             // Measure upload speed
             result.Upload = await MeasureUploadAsync( cancellationToken );
-            logger.LogInformation( "Upload: {Speed:F2} Mbps", result.Upload.Bandwidth / 1_000_000.0 * 8 );
+            var uploadSpeedMbps = result.Upload.Bandwidth / 1_000_000.0 * 8;
+            logger.LogInformation( "Upload: {Speed:F2} Mbps", uploadSpeedMbps );
+            if ( uploadSpeedMbps > 0 && uploadSpeedMbps < _lowSpeedWarningMbps )
+            {
+                logger.LogWarning( "Upload speed {Speed:F2} Mbps is below threshold of {Threshold:F2} Mbps", uploadSpeedMbps, _lowSpeedWarningMbps );
+            }
 
             result.IsSuccess = true;
         }
@@ -227,12 +240,19 @@ public class CloudflareSpeedTestService(
         {
             var requestUri = $"{DownloadUrl}?bytes={maxBytes}&connection={connectionId}";
             using var response = await _httpClient.GetAsync( requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken );
+
+            if ( !response.IsSuccessStatusCode )
+            {
+                logger.LogError( "Connection {ConnectionId}: HTTP {StatusCode}", connectionId, response.StatusCode );
+                return 0;
+            }
+
             using var stream = await response.Content.ReadAsStreamAsync( cancellationToken );
 
             while ( testStopwatch.Elapsed.TotalSeconds < _testDurationSeconds && !cancellationToken.IsCancellationRequested )
             {
                 var bytesRead = await stream.ReadAsync( buffer, 0, buffer.Length, cancellationToken );
-                if ( bytesRead == 0 ) break; // End of stream
+                if ( bytesRead == 0 ) break;
 
                 totalBytesRead += bytesRead;
             }
@@ -352,7 +372,7 @@ public class CloudflareSpeedTestService(
     {
         try
         {
-            var warmupSize = 500_000; // 500KB warmup
+            var warmupSize = 200_000; // 200KB warmup
             var requestUri = $"{DownloadUrl}?bytes={warmupSize}&warmup={connectionId}";
             using var response = await _httpClient.GetAsync( requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken );
             using var stream = await response.Content.ReadAsStreamAsync( cancellationToken );

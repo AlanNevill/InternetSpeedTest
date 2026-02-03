@@ -6,13 +6,17 @@ Supports both Ookla Speedtest CLI and Cloudflare speed testing, with results sto
 ## Speed Test Providers
 
 ### Ookla Speedtest (Default)
+
 Runs the official SPEEDTEST.EXE from Ookla and processes JSON output into database table.
+
 - Uses global Ookla server network
 - Requires speedtest.exe executable
 - Stores actual Speedtest.net result URLs
 
 ### Cloudflare Speed Test
+
 Advanced HTTP-based speed testing using Cloudflare's global CDN network with browser-level performance optimizations.
+
 - **Parallel multi-connection testing** (default: 4 simultaneous connections)
 - **HTTP/2 optimized** with connection pooling and reuse
 - **Connection warmup phase** to overcome TCP slow-start effects
@@ -45,6 +49,7 @@ Configure speed test provider in `appsettings.json`:
 The Cloudflare speed test implementation includes advanced optimizations to match browser-based test accuracy:
 
 ### HTTP Client Optimizations
+
 - **HTTP/2 Preferred**: Uses HTTP/2 with fallback to HTTP/1.1
 - **Connection Pooling**: Optimized connection reuse (5min lifetime, 2min idle timeout)
 - **Parallel Connections**: Multiple simultaneous connections (configurable, default: 4)
@@ -53,19 +58,24 @@ The Cloudflare speed test implementation includes advanced optimizations to matc
 - **Proxy Bypass**: Direct connection to test servers
 
 ### Testing Methodology
+
 - **Connection Warmup**: Pre-establishes connections to overcome TCP slow-start
 - **Time-Based Testing**: Fixed duration (10s) vs. fixed data sizes for consistent measurement
 - **Parallel Upload/Download**: Multiple streams maximize connection utilization
 - **High-Resolution Timing**: Precise measurement excluding connection establishment overhead
 
 ### Configuration Tuning
+
 Adjust parameters based on your connection characteristics:
+
 - **More connections** (6-8) for very high-speed connections (>500 Mbps)
 - **Longer test duration** (15-20s) for more stable results
 - **Shorter warmup** (1s) for consistent low-latency connections
 
 ### Expected Performance Improvements
+
 With these optimizations, Cloudflare speed tests should:
+
 - **Match browser results**: Typically within 5-10% of web-based Cloudflare speed tests
 - **Utilize full bandwidth**: Parallel connections maximize throughput
 - **Provide consistent results**: Time-based testing reduces variability
@@ -84,15 +94,17 @@ With these optimizations, Cloudflare speed tests should:
 - **Configurable Performance**: Tunable parameters for optimal results
 
 ## Daily Reports
-The daily job performs:
-1. Internet speed summary for the previous day (aggregate stats)
 
+The daily job performs:
+
+1. Internet speed summary for the previous day (aggregate stats)
 
 Drives with less than 10% free space are highlighted and marked LOW.
 
 ## Usage
 
 ### Manual Execution
+
 ```bash
 # Run with default Ookla testing
 dotnet run
@@ -104,6 +116,7 @@ dotnet run
 ### Performance Tuning Examples
 
 **High-Speed Connection (>500 Mbps)**:
+
 ```json
 "Cloudflare": {
   "ParallelConnections": 6,
@@ -113,6 +126,7 @@ dotnet run
 ```
 
 **Stable/Consistent Connection**:
+
 ```json
 "Cloudflare": {
   "ParallelConnections": 4,
@@ -122,6 +136,7 @@ dotnet run
 ```
 
 **Lower-Speed/Unstable Connection**:
+
 ```json
 "Cloudflare": {
   "ParallelConnections": 2,
@@ -131,7 +146,9 @@ dotnet run
 ```
 
 ### Scheduled Execution
+
 The application is designed to run via Windows Task Scheduler every hour:
+
 - Executable: `InternetSpeedTest.exe`
 - Schedule: Hourly
 - Working Directory: Application bin folder
@@ -140,27 +157,30 @@ The application is designed to run via Windows Task Scheduler every hour:
 
 Results are stored in the `InternetSpeed` table:
 
-| Column | Type | Description |
-|--------|------|-------------|
-| ResultDateTime | DateTime | Local timestamp of test |
-| DownLoadBandwidth | bigint | Download speed (bytes/sec) |
-| UploadBandWidth | bigint | Upload speed (bytes/sec) |
-| PingLatency | float | Average ping latency (ms) |
-| PingJitter | float | Ping jitter (ms) |
-| PingHigh | float | Highest ping (ms) |
-| PingLow | float | Lowest ping (ms) |
-| ResultUrl | string | Speedtest.net URL or "CloudFlare" |
-| ResultJson | string | Complete JSON response |
+| Column            | Type     | Description                       |
+| ----------------- | -------- | --------------------------------- |
+| ResultDateTime    | DateTime | Local timestamp of test           |
+| DownLoadBandwidth | bigint   | Download speed (bytes/sec)        |
+| UploadBandWidth   | bigint   | Upload speed (bytes/sec)          |
+| PingLatency       | float    | Average ping latency (ms)         |
+| PingJitter        | float    | Ping jitter (ms)                  |
+| PingHigh          | float    | Highest ping (ms)                 |
+| PingLow           | float    | Lowest ping (ms)                  |
+| ResultUrl         | string   | Speedtest.net URL or "CloudFlare" |
+| ResultJson        | string   | Complete JSON response            |
 
 ## Logging
 
 Logs are written to:
+
 - **Console**: Real-time output during execution
 - **File**: `C:\\Synv\\logs\\BEELINK-1\\InternetSpeedTest-{date}.log`
 - **Retention**: 7 files, 4MB each, daily rotation
 
 ### Cloudflare Test Logging
+
 Detailed logging includes:
+
 - Configuration parameters (connections, duration, warmup time)
 - Connection warmup progress and results
 - Per-connection performance metrics during testing
@@ -174,6 +194,7 @@ Detailed logging includes:
 - Build now succeeds.
 
 When you finish copying to `C:\\Users\\alann\\OneDrive\\Repos\\Email\\EmailerUtility`:
+
 - Set a property in a `Directory.Build.props` or via CLI: `/p:UseExternalEmailer=true`
 - Or edit the csproj to set `UseExternalEmailer` to `true`.
 
@@ -184,18 +205,22 @@ When you finish copying to `C:\\Users\\alann\\OneDrive\\Repos\\Email\\EmailerUti
 If Cloudflare results are still lower than browser-based tests:
 
 1. **Increase parallel connections**:
+   
    - Try 6-8 connections for very fast connections (>500 Mbps)
    - Monitor logs for connection failures
 
 2. **Extend test duration**:
+   
    - Use 15-20 seconds for more stable measurements
    - Longer tests average out temporary fluctuations
 
 3. **Check system resources**:
+   
    - Ensure CPU isn't limiting (multiple parallel streams are CPU-intensive)
    - Close other network-intensive applications during testing
 
 4. **Network configuration**:
+   
    - Verify IPv6 connectivity (check logs for IP addresses used)
    - Test different times of day to rule out ISP throttling
    - Temporarily disable VPN/proxy if enabled
@@ -205,8 +230,6 @@ If Cloudflare results are still lower than browser-based tests:
 - **Ookla**: Tests against ISP-optimized servers, may show higher speeds
 - **Cloudflare**: Tests against global CDN, more representative of real-world performance
 - **Different methodologies**: Each provider uses different testing algorithms
-
-
 
 ## Build and Deploy
 
@@ -222,6 +245,8 @@ dotnet publish -c Release -r win-x64 --self-contained
 
 ### Deploying to Production
 
+`Dotnet publish` includes an implicit `dotnet build -c Release` unless the `--nobuild `parameter is used.
+
 The application should be deployed to: `C:\ScheduledTasks\InternetSpeedTest`
 
 ```powershell
@@ -232,16 +257,19 @@ dotnet publish InternetSpeedTest.csproj -c Release -o C:\ScheduledTasks\Internet
 ### Post-Deployment Steps
 
 1. **Configure Task Scheduler**:
+   
    - Create a scheduled task to run `InternetSpeedTest.exe` hourly
    - Set working directory to: `C:\ScheduledTasks\InternetSpeedTest`
    - Run with appropriate user privileges
 
 2. **Verify Configuration**:
+   
    - Ensure `appsettings.json` has correct database connection string
    - Configure speed test provider (Ookla or Cloudflare)
    - Set up email settings for daily reports
 
 3. **Test Deployment**:
+   
    ```powershell
    # Test manual execution
    C:\ScheduledTasks\InternetSpeedTest\InternetSpeedTest.exe
