@@ -265,21 +265,28 @@ internal sealed class InternetSpeedTestService(
 
         logger.LogInformation( "Performing daily tasks for {Date}", yesterday.ToString( "yyyy-MM-dd" ) );
 
-        // Summarise results for yesterday and email
-        var result = await SummariseResultsYesterday( yesterday );
+        try
+        {
+            // Summarise results for yesterday and email
+            var result = await SummariseResultsYesterday( yesterday, ct );
 
-        // any more daily tasks can be added here
+            // any more daily tasks can be added here
 
-        logger.LogInformation( "Daily tasks completed at {UtcNow} UTC, EmailMessageId: {result}", timeProvider.GetUtcNow(), result );
+            logger.LogInformation( "Daily tasks completed at {UtcNow} UTC, EmailMessageId: {result}", timeProvider.GetUtcNow(), result );
+        }
+        catch ( Exception ex )
+        {
+            logger.LogError( ex, "Daily tasks failed for {Date}", yesterday.ToString( "yyyy-MM-dd" ) );
+        }
     }
 
-    private async Task<long> SummariseResultsYesterday(DateTime yesterday)
+    private async Task<long> SummariseResultsYesterday(DateTime yesterday, CancellationToken ct)
     {
         // get yesterday's summary from the database view
-        var popsDb = popsContextFactory.CreateDbContext();
-        var vGigaClear4day = popsDb.VGigaClearByDays
+        await using var popsDb = popsContextFactory.CreateDbContext();
+        var vGigaClear4day = await popsDb.VGigaClearByDays
             .AsNoTracking()
-            .FirstOrDefault( v => v.SmallDate == yesterday.ToString( "yyyy-MM-dd" ) );
+            .FirstOrDefaultAsync( v => v.SmallDate == yesterday.ToString( "yyyy-MM-dd" ), ct );
 
         // format the email body as HTML
         string formattedEmail = HelperLib.FormatEmailForAcs( vGigaClear4day! );
