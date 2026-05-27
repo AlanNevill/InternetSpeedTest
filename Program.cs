@@ -61,7 +61,7 @@ try
     var assemblyVersion = assembly.GetName().Version;
     var fileVersion = assembly.GetCustomAttribute<AssemblyFileVersionAttribute>()?.Version;
     var informationalVersion = assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
-    var buildDate = System.IO.File.GetCreationTime( assembly.Location );
+    var buildDate = System.IO.File.GetLastWriteTime( assembly.Location );
     var packageVersion = informationalVersion?.Split( '+' )[0]; // Extract version before '+' metadata
 
     using var _ = HelperLib.BeginMethodScope("Program");
