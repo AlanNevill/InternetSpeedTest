@@ -40,7 +40,9 @@ try
             var emailerConnectionString = config.GetConnectionString( "Emailer" );
             ArgumentNullException.ThrowIfNullOrWhiteSpace( emailerConnectionString, nameof( emailerConnectionString ) );
 
-            services.AddDbContextFactory<PopsContext>( options => options.UseSqlServer( connectionString ) );
+            services.AddDbContextFactory<PopsContext>( options =>
+                options.UseSqlServer( connectionString, sqlOptions =>
+                    sqlOptions.CommandTimeout( 120 ) ) );
             services.AddDbContextFactory<Emailer>( options => options.UseSqlServer( emailerConnectionString ) );
 
             // Register TimeProvider for better testability

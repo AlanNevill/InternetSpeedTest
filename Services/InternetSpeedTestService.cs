@@ -89,8 +89,16 @@ internal sealed class InternetSpeedTestService(
             return false;
         }
 
-        // Perform daily tasks (placeholder for now)
-        await DoDailyTasksAsync( cancellationToken );
+        // Perform daily tasks; if they fail, do NOT save state so the next run retries.
+        // The error is already logged inside DoDailyTasksAsync.
+        try
+        {
+            await DoDailyTasksAsync( cancellationToken );
+        }
+        catch
+        {
+            return false;
+        }
 
         // Update state and persist to json file
         state.LastDailyRunUtc = timeProvider.GetUtcNow().DateTime;
@@ -261,8 +269,8 @@ internal sealed class InternetSpeedTestService(
     {
         using var _ = HelperLib.BeginMethodScope();
 
-        // get yesterday's date using TimeProvider
-        var yesterday = timeProvider.GetUtcNow().Date.AddDays( -1 );
+        // get yesterday's date using local time so it aligns with the scheduler's day boundary
+        var yesterday = timeProvider.GetLocalNow().Date.AddDays( -1 );
 
         logger.LogInformation( "Performing daily tasks for {Date}", yesterday.ToString( "yyyy-MM-dd" ) );
 
@@ -278,6 +286,7 @@ internal sealed class InternetSpeedTestService(
         catch ( Exception ex )
         {
             logger.LogError( ex, "Daily tasks failed for {Date}", yesterday.ToString( "yyyy-MM-dd" ) );
+            throw; // re-throw so RunDailyIfNeededAsync does not save state — allows retry next run
         }
     }
 
