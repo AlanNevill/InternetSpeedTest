@@ -66,8 +66,9 @@ internal sealed class InternetSpeedTestService(
     {
         using var _ = HelperLib.BeginMethodScope();
 
-        // Check if already run today - using TimeProvider for testability
-        var today = timeProvider.GetUtcNow().Date;
+        // Check if already run today - compare in local time so midnight-local runs
+        // (which are still the previous UTC date) correctly start a new day.
+        var today = timeProvider.GetLocalNow().Date;
         DailyState state;
 
         try
@@ -80,7 +81,7 @@ internal sealed class InternetSpeedTestService(
             state = new DailyState();
         }
 
-        if ( state.LastDailyRunUtc?.Date == today )
+        if ( state.LastDailyRunUtc?.ToLocalTime().Date == today )
         {
             // Already ran today
             logger.LogInformation( "Daily tasks have already been run today." );
