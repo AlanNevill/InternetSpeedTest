@@ -10,7 +10,7 @@ SQL Server, and **once a day** emails a summary of the previous day. It runs to 
 there is no host loop, no long-lived state, and every scheduling decision is made from disk.
 
 It is one of three apps that enqueue mail through the **EmailerUtility** package for `EmailerService` to
-send — see `..\Email\EmailerService\CLAUDE.md`, and the TODO at the bottom of this file.
+send — see `..\Email\EmailerService\CLAUDE.md`.
 
 ## Commands
 
@@ -72,7 +72,7 @@ fixing a DB timeout on this path.
 duplicate of those entities lived in `DataModels/Emailer/` until 2026-09-04 — dead code that nothing
 resolved, and a trap: its `EmailMessage.Subject` still carried `[Unicode(false)]` after the column became
 `nvarchar(512)`, so anyone who started writing mail rows through it would have silently reintroduced the
-non-ASCII mangling described in the TODO below. **Send mail through `EmailerClient` only.**
+non-ASCII mangling described under "Non-ASCII email subjects" below. **Send mail through `EmailerClient` only.**
 
 `Program.cs` still validates `ConnectionStrings:Emailer` at startup even though nothing in this app opens
 that connection — EmailerUtility resolves it itself, and a missing value should fail at startup rather
@@ -125,44 +125,42 @@ disagree with each other and with the package version the app logs at startup. T
 extension and do nothing on the command line. Sibling projects use MinVer (PcMaintenance) or
 Nerdbank.GitVersioning (EmailerService); this one has neither.
 
-## TODO — update EmailerUtility so subjects can hold non-ASCII
+## Non-ASCII email subjects — fixed 2026-09-04
 
-**This app cannot currently put an emoji, or any non-ASCII character, in an email subject, and fails
-silently when it tries.**
+Subjects can now hold any Unicode character. Getting here needed **three** things, and missing any one of
+them looks like the fix silently not working:
 
-On 2026-09-03 `Emailer.dbo.EmailMessages.Subject` was widened from `varchar(512)` to `nvarchar(512)`, and
-`[Unicode(false)]` was removed from `EmailMessage.Subject` in `EmailerDataModels`. **Both halves are
-required** — widening the column achieves nothing while EF still sends `varchar` parameters, and the
-mapping lives in the entity, not in the calling code.
+1. `Emailer.dbo.EmailMessages.Subject` widened from `varchar(512)` to `nvarchar(512)` (2026-09-03).
+2. `[Unicode(false)]` removed from `EmailMessage.Subject` in `EmailerDataModels` — widening the column
+   achieves nothing while EF still sends `varchar` parameters, and the mapping lives in the entity, not
+   in the calling code.
+3. **The packages actually rebuilt and their versions bumped.** This is what stalled it for a day.
+   `EmailerDataModels` had no package metadata at all, so it packed as the SDK default version `1.0.0`
+   every time. NuGet never re-fetches a version already in the global packages folder, so repacking at
+   `1.0.0` was a no-op and consumers kept the old mapping. It now sets `<Version>` explicitly and shipped
+   as **1.0.1**; `EmailerUtility` went to **0.1.16** and, because it *project-references*
+   `EmailerDataModels`, its nuspec picked up the `1.0.1` dependency automatically.
 
-This project references **`EmailerUtility 0.1.15` as a package only**, with no project reference, so it
-inherits the old mapping through the transitive `EmailerDataModels`. PcMaintenance project-references
-`EmailerDataModels` and so picked the fix up on a rebuild; this app and FinRite did not.
+This project consumes `EmailerUtility` as a package only (no project reference), so it depends entirely
+on that version bump. It now references `EmailerUtility 0.1.16`.
 
-Nothing is being lost today, because the subject is currently plain ASCII
-(`Daily Internet Speed Test Report for <date>`). The limitation only bites when someone adds a character
-outside ASCII.
+Verified by reflecting over the packaged assemblies: in `EmailerDataModels 1.0.0` the `Subject` property
+carried `UnicodeAttribute`; in `1.0.1` it does not, while `FromAddress` and `Status` still do — those two
+are deliberately non-Unicode.
 
-**To close it:**
+**If a subject ever comes back mangled again, verify from the data, not the console.** `sqlcmd` prints
+`??` for astral-plane characters whether or not the stored value is intact, which looks exactly like the
+failure:
 
-1. Rebuild and repack `EmailerDataModels`, then `EmailerUtility` (which project-references it), bumping
-   both versions. They publish to `E:\Repos\Email\EmailerUtility\nupkgs`, which is the `EmailerUtilityLocal`
-   feed in `NuGet.Config`. That folder currently holds `EmailerUtility.0.1.14/0.1.15` and
-   `EmailerDataModels.1.0.0`.
-2. Bump `<PackageReference Include="EmailerUtility" Version="0.1.15" />` in `InternetSpeedTest.csproj`.
-3. Do FinRite at the same time — it has the identical problem, and one repack unblocks both. See
-   `..\FinRite\CLAUDE.md`.
-4. Verify **from the data, not the console**: `sqlcmd` prints `??` for astral-plane characters whether or
-   not the stored value is intact, which looks exactly like the failure.
+```sql
+SELECT UNICODE(SUBSTRING(Subject,1,1)) FROM EmailMessages WHERE MessageId = <id>;
+```
 
-   ```sql
-   SELECT UNICODE(SUBSTRING(Subject,1,1)) FROM EmailMessages WHERE MessageId = <id>;
-   ```
+`55357` (a UTF-16 high surrogate) means intact; `63` is a literal `?` and means it was mangled.
 
-   `55357` (a UTF-16 high surrogate) means intact; `63` is a literal `?` and means it was mangled.
-
-The duplicate `DataModels/Emailer/` model that would otherwise reintroduce the same bug has already been
-deleted (2026-09-04).
+Note this app's own subject is still plain ASCII (`Daily Internet Speed Test Report for <date>`); the
+end-to-end proof lives in FinRite's registration email. The duplicate `DataModels/Emailer/` model that
+would otherwise reintroduce the bug was deleted the same day.
 
 ## Other documentation in this repo
 
