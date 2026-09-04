@@ -68,7 +68,7 @@ dotnet run
 
 ### Core Components
 
-- **Program.cs**: Entry point with dependency injection setup, configures two DbContexts (PopsContext and Emailer)
+- **Program.cs**: Entry point with dependency injection setup; configures the `PopsContext` DbContext and registers EmailerUtility (mail goes through `EmailerClient`, not a local DbContext)
 - **IInternetSpeedTestService**: Service interface for running speed tests
 - **InternetSpeedTestService**: Main orchestration service that delegates to appropriate speed test provider
 - **CloudflareSpeedTestService**: Advanced HTTP-based speed testing with parallel connections and HTTP/2 optimization

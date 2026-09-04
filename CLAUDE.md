@@ -17,7 +17,12 @@ send — see `..\Email\EmailerService\CLAUDE.md`, and the TODO at the bottom of 
 ```powershell
 dotnet build
 dotnet run                    # runs one cycle and exits, exactly as the scheduled task does
+# Framework-dependent publish
 dotnet publish InternetSpeedTest.csproj -c Release -o C:\ScheduledTasks\InternetSpeedTest
+
+# Single-file publish (preferred deployment - see README.md "Build and Deploy")
+dotnet publish InternetSpeedTest.csproj --configuration Release --runtime win-x64 `
+  --self-contained true -p:PublishSingleFile=true --output C:\ScheduledTasks\InternetSpeedTest
 ```
 
 **There are no tests.** No test project exists, so every change is verified by running it.
@@ -52,30 +57,26 @@ process. Otherwise the app shells out to `SpeedTest:Executable` (`speedtest.exe`
 `--accept-license --accept-gdpr --format=json` and parses the JSON. `SpeedTest:LowSpeedWarning` (100.0)
 is the threshold the report highlights.
 
-### Two databases, two contexts
+### One local context, plus the shared mail queue
 
-| Connection | Context | Holds |
+| Connection | Used by | Holds |
 | --- | --- | --- |
 | `connLocal` | `PopsContext` | Speed results, plus the `VGigaClearByDay` view the daily report reads |
-| `Emailer` | `Emailer` (local copy — see below) | The shared mail queue |
+| `Emailer` | `EmailerUtility` (package) | The shared mail queue |
 
 `PopsContext` is registered with a **120-second command timeout**, which is deliberate: a commit exists
 fixing a DB timeout on this path.
 
-### ⚠️ The local `DataModels/Emailer/` copy is dead code, and a trap
+**There is no local `Emailer` DbContext, and there must not be one again.** Mail is enqueued only through
+`EmailerUtility.EmailerClient.EnqueueAsync`, which uses the `EmailerDataModels` package. A scaffolded
+duplicate of those entities lived in `DataModels/Emailer/` until 2026-09-04 — dead code that nothing
+resolved, and a trap: its `EmailMessage.Subject` still carried `[Unicode(false)]` after the column became
+`nvarchar(512)`, so anyone who started writing mail rows through it would have silently reintroduced the
+non-ASCII mangling described in the TODO below. **Send mail through `EmailerClient` only.**
 
-`DataModels/Emailer/` contains its **own scaffolded copy** of the Emailer entities and an `Emailer`
-`DbContext`, registered at `Program.cs:46`. **Nothing resolves it.** Mail is sent through
-`EmailerUtility.EmailerClient.EnqueueAsync`, which uses the `EmailerDataModels` package — a different set
-of classes for the same tables.
-
-This matters because the local copy's `EmailMessage.Subject` still carries `[Unicode(false)]`, and the
-`Subject` column became `nvarchar(512)` on 2026-09-03. Anyone who starts using this context to write mail
-rows will silently reintroduce the bug that change fixed: non-ASCII characters replaced with `?` at
-insert, irrecoverably. **Send mail through `EmailerClient` only.**
-
-The registration cannot simply be deleted without checking `ConnectionStrings:Emailer` is still validated
-at startup — `Program.cs` throws if it is missing, and EmailerUtility needs it too.
+`Program.cs` still validates `ConnectionStrings:Emailer` at startup even though nothing in this app opens
+that connection — EmailerUtility resolves it itself, and a missing value should fail at startup rather
+than mid-send.
 
 ## Configuration
 
@@ -97,6 +98,25 @@ Published to `C:\ScheduledTasks\InternetSpeedTest` and driven by an hourly sched
 for the task setup and post-deployment checks. `dotnet publish` adds and overwrites but never deletes, so
 `daily-state.json` survives a deploy — which is what you want, since deleting it causes a duplicate daily
 report.
+
+**The preferred mode is a self-contained single-file publish**, matching PcMaintenance. Three things in
+the code exist only to make that mode work, and none of them fail in a framework-dependent publish, so a
+regression is invisible until someone publishes single-file:
+
+- `Program.cs` reads the build-date banner from **`Environment.ProcessPath`**, not `Assembly.Location`,
+  which is an empty string inside a bundle (`InternetSpeedTestLib.BuildConfig` uses
+  `AppContext.BaseDirectory` for the same reason). The IL3000 analyzer catches regressions, but only
+  during a single-file publish.
+- `Program.cs` names the **Serilog sink assemblies explicitly** in a `ConfigurationReaderOptions`;
+  `DependencyContext`-based discovery does not work in a bundle. Adding a sink package means adding its
+  assembly there too.
+- `Program.cs` pins **`.UseContentRoot( AppContext.BaseDirectory )`** so `appsettings.json` is found
+  whatever the working directory. Do not replace this with a JSON file re-added in
+  `ConfigureAppConfiguration` — that lands after the env-var and command-line providers and overrides
+  both.
+
+Verified 2026-09-04: single-file publish is warning-clean and a run from an unrelated working directory
+starts, logs to both sinks, completes a Cloudflare test and exits 0.
 
 Versioning is **manual and inconsistent**: `<Version>1.0.10</Version>` alongside
 `<AssemblyVersion>1.0.0.1206</AssemblyVersion>` and `<FileVersion>2.0.0.0826</FileVersion>`, which
@@ -141,8 +161,8 @@ outside ASCII.
 
    `55357` (a UTF-16 high surrogate) means intact; `63` is a literal `?` and means it was mangled.
 
-While doing this, consider deleting `DataModels/Emailer/` — repacking is the natural moment to remove the
-duplicate model that would otherwise reintroduce the same bug.
+The duplicate `DataModels/Emailer/` model that would otherwise reintroduce the same bug has already been
+deleted (2026-09-04).
 
 ## Other documentation in this repo
 
@@ -151,8 +171,6 @@ Substantial and worth reading before assuming anything here is complete:
 | File | Covers |
 | --- | --- |
 | `README.md` | Fullest account: usage, configuration, build/deploy, scheduled task setup |
-| `EMAILER_PACKAGE_SETUP.md` | Why EmailerUtility is a local NuGet package, and how to update it |
-| `MODERNIZATION_GUIDE.md` | .NET upgrade notes |
 | `WARP.md` | Guidance for a different agent tool; overlaps this file |
 | `.github/copilot-instructions.md` | Ditto, for Copilot |
 

@@ -1,7 +1,6 @@
 ﻿using HtmlAgilityPack;
 
 using InternetSpeedTest.DataModels;
-using InternetSpeedTest.DataModels.Emailer;
 
 // Removed ILogger injection; helper now purely static.
 using Serilog;

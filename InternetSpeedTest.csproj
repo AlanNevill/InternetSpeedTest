@@ -9,7 +9,7 @@
     <FileVersion>2.0.0.0826</FileVersion>
     <Version>1.0.10</Version>
     <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
-    <!-- Exclude any nested bin/obj folders (like EmailerUtility\obj) from being included as items/Compile in this project -->
+    <!-- Never treat nested bin/obj folders as project items -->
     <DefaultItemExcludes>$(DefaultItemExcludes);**\bin\**;**\obj\**</DefaultItemExcludes>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
@@ -60,13 +60,9 @@
 	  <PackageReference Include="EmailerUtility" Version="0.1.15" />
 	  <PackageReference Include="System.Security.Cryptography.Xml" Version="10.0.8" />
   </ItemGroup>
-  <!-- Exclude the nested EmailerUtility folder from being compiled into this project -->
   <ItemGroup>
-    <Compile Remove="EmailerUtility\**\*.cs" />
     <Compile Remove="Results\**" />
-    <EmbeddedResource Remove="EmailerUtility\**\*.*" />
     <EmbeddedResource Remove="Results\**" />
-    <None Remove="EmailerUtility\**\*.*" />
     <None Remove="Results\**" />
   </ItemGroup>
 

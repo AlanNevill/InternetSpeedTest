@@ -1,5 +1,4 @@
 using InternetSpeedTest.DataModels;
-using InternetSpeedTest.DataModels.Emailer;
 
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
