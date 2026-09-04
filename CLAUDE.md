@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 Guidance for Claude Code (claude.ai/code) when working in this repository.
 
@@ -20,7 +20,8 @@ dotnet run                    # runs one cycle and exits, exactly as the schedul
 # Framework-dependent publish
 dotnet publish InternetSpeedTest.csproj -c Release -o C:\ScheduledTasks\InternetSpeedTest
 
-# Single-file publish (preferred deployment - see README.md "Build and Deploy")
+# Single-file publish (preferred deployment - see README.md "Build and Deploy" for the caveats:
+# it overwrites the live folder while the hourly task may be running, and never deletes)
 dotnet publish InternetSpeedTest.csproj --configuration Release --runtime win-x64 `
   --self-contained true -p:PublishSingleFile=true --output C:\ScheduledTasks\InternetSpeedTest
 ```

@@ -1,4 +1,4 @@
-# InternetSpeedTest
+﻿# InternetSpeedTest
 
 CLI application for automated internet speed testing. Runs every hour via Task Scheduler job.
 Supports both Ookla Speedtest CLI and Cloudflare speed testing, with results stored in a database.
@@ -231,6 +231,8 @@ If Cloudflare results are still lower than browser-based tests:
 Produces one self-contained `InternetSpeedTest.exe` with the .NET runtime bundled in, so the target
 machine needs no .NET installation. This mirrors the flow used by the PcMaintenance project.
 
+Run from the repository root:
+
 ```powershell
 dotnet publish E:\Repos\InternetSpeedTest\InternetSpeedTest.csproj `
   --configuration Release `
@@ -243,10 +245,24 @@ dotnet publish E:\Repos\InternetSpeedTest\InternetSpeedTest.csproj `
 The scheduled task points at `C:\ScheduledTasks\InternetSpeedTest\InternetSpeedTest.exe`, with its
 **Start in** set to that same folder.
 
+> **This publishes directly over the live deployment.** The task runs hourly, so a run that starts
+> mid-publish holds a lock on the exe and the publish fails part-way. Disable the `InternetSpeedTest`
+> task (or publish just after an hourly run has finished) and re-enable it afterwards.
+
+> **Switching from a framework-dependent publish leaves the old files behind.** `dotnet publish` adds and
+> overwrites but never deletes, so `InternetSpeedTest.dll`, `InternetSpeedTest.deps.json`,
+> `InternetSpeedTest.runtimeconfig.json` and every dependency DLL stay in the folder beside the new
+> self-contained exe. They are inert, but they make it impossible to tell which build is actually
+> running. Clear the folder for the first single-file deploy — **but keep `daily-state.json`** (see
+> below), or copy it back afterwards.
+
 `appsettings.json` is **not** bundled into the exe — it is copied beside it (`CopyToOutputDirectory`), so
-it stays editable on the target machine. `dotnet publish` adds and overwrites but never deletes, so
-`daily-state.json` survives a deploy; that is what you want, since removing it causes a duplicate daily
-report.
+it stays editable on the target machine.
+
+`daily-state.json` is the only thing preventing 24 daily report emails a day, and it lives in this same
+folder (`DailyRun:StatePath`). A normal publish leaves it untouched, which is what you want. **Deleting
+it — or deleting the whole folder — makes the next hourly run believe the daily report has not gone out
+yet, and send yesterday's report a second time.**
 
 > **Three things in the code exist solely to make this mode work — do not undo them.** Each is a
 > single-file-only failure that a framework-dependent publish never exhibits:
