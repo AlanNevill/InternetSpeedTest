@@ -155,6 +155,7 @@ The application is designed to run via Windows Task Scheduler every hour:
 - Executable: `InternetSpeedTest.exe`
 - Schedule: Hourly
 - Working Directory: Application bin folder
+- Logon: S4U (no stored password) — see [Post-Deployment Steps](#post-deployment-steps)
 
 ## Database Schema
 
@@ -311,6 +312,38 @@ The application is deployed to: `C:\ScheduledTasks\InternetSpeedTest`
    - Create a scheduled task to run `InternetSpeedTest.exe` hourly
    - Set working directory to: `C:\ScheduledTasks\InternetSpeedTest`
    - Run with appropriate user privileges
+   - **Use an S4U logon, not a stored password.** A task registered with a stored password
+     (LogonType Password) stops working the moment that password changes or goes away — for example
+     when a Microsoft account is switched to passwordless, which is what stopped this task on
+     2026-10-13. The failure is silent: Task Scheduler logs event 104 (`0x8007052E`) and the exe never
+     starts, so the application logs just end. S4U stores no secret. It is sufficient here because the
+     app only needs local SQL Server with Integrated Security and outbound internet; an S4U token cannot
+     authenticate to remote network resources.
+
+   The live task (`Internet speed test`) is configured as follows. Run this in an **elevated** PowerShell
+   (changing a task's principal fails with "Access is denied" otherwise):
+
+   ```powershell
+   $action    = New-ScheduledTaskAction -Execute 'C:\ScheduledTasks\InternetSpeedTest\InternetSpeedTest.exe' `
+                  -WorkingDirectory 'C:\ScheduledTasks\InternetSpeedTest'
+   $trigger   = New-ScheduledTaskTrigger -Once -At '16:00' -RepetitionInterval (New-TimeSpan -Hours 1)
+   $principal = New-ScheduledTaskPrincipal -UserId "$env:COMPUTERNAME\$env:USERNAME" -LogonType S4U -RunLevel Highest
+   $settings  = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew `
+                  -ExecutionTimeLimit (New-TimeSpan -Hours 72)
+   Register-ScheduledTask -TaskName 'Internet speed test' -Action $action -Trigger $trigger `
+                  -Principal $principal -Settings $settings
+   ```
+
+   To fix an existing task whose logon has broken, change only the principal:
+
+   ```powershell
+   $p = New-ScheduledTaskPrincipal -UserId 'BEELINK-1\alann' -LogonType S4U -RunLevel Highest
+   Set-ScheduledTask -TaskName 'Internet speed test' -Principal $p
+   ```
+
+   **If runs stop appearing in the logs**, check Task Scheduler before the app:
+   `Get-ScheduledTaskInfo 'Internet speed test'` (`LastRunTime`, `NumberOfMissedRuns`) and the
+   `Microsoft-Windows-TaskScheduler/Operational` event log (events 101 and 104 for this task).
 
 2. **Verify Configuration**:
    
