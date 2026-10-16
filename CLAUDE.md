@@ -1,0 +1,199 @@
+﻿# CLAUDE.md
+
+Guidance for Claude Code (claude.ai/code) when working in this repository.
+
+## What this is
+
+**InternetSpeedTest** is a .NET 10 **console application** — not a service. A Windows Scheduled Task runs
+it **hourly** from `C:\ScheduledTasks\InternetSpeedTest`; it measures the connection, writes the result to
+SQL Server, and **once a day** emails a summary of the previous day. It runs to completion and exits, so
+there is no host loop, no long-lived state, and every scheduling decision is made from disk.
+
+It is one of three apps that enqueue mail through the **EmailerUtility** package for `EmailerService` to
+send — see `..\Email\EmailerService\CLAUDE.md`.
+
+## Commands
+
+```powershell
+dotnet build
+dotnet run                    # runs one cycle and exits, exactly as the scheduled task does
+# Framework-dependent publish
+dotnet publish InternetSpeedTest.csproj -c Release -o C:\ScheduledTasks\InternetSpeedTest
+
+# Single-file publish (preferred deployment - see README.md "Build and Deploy" for the caveats:
+# it overwrites the live folder while the hourly task may be running, and never deletes)
+dotnet publish InternetSpeedTest.csproj --configuration Release --runtime win-x64 `
+  --self-contained true -p:PublishSingleFile=true --output C:\ScheduledTasks\InternetSpeedTest
+```
+
+**There are no tests.** No test project exists, so every change is verified by running it.
+
+## Architecture
+
+### One pass, then exit (`Program.cs`)
+
+`Host.CreateDefaultBuilder` → resolve `IInternetSpeedTestService` → `RunAsync()` then
+`RunDailyIfNeededAsync()` → dispose. Two things follow from that:
+
+- **The hourly cadence lives in Task Scheduler, not in the code.** Nothing here sleeps or loops.
+- **Anything remembered between runs must be on disk or in the database.**
+
+### The daily gate is a file, not memory
+
+`RunDailyIfNeededAsync` reads and writes `daily-state.json`, whose location comes from
+`DailyRun:StatePath` (`C:\ScheduledTasks\InternetSpeedTest\daily-state.json`). Because the process exits
+every hour, this file is the *only* thing preventing 24 daily reports a day.
+
+The comparison is deliberately in **local** time. Two commits exist purely about this
+(`RunDailyIfNeededAsync firing too early at midnight local time`, and a `yesterday` UTC/local mismatch),
+so treat any change from local to UTC here as a regression unless you have re-derived the reasoning.
+
+A failure to persist the state is logged as a warning and **not** treated as fatal, so a run whose save
+fails will repeat its daily work on the next hourly pass.
+
+### Speed measurement — two implementations
+
+`SpeedTest:UseCloudflare` (currently `true`) selects `CloudflareSpeedTestService`, which measures in
+process. Otherwise the app shells out to `SpeedTest:Executable` (`speedtest.exe`) with
+`--accept-license --accept-gdpr --format=json` and parses the JSON. `SpeedTest:LowSpeedWarning` (100.0)
+is the threshold the report highlights.
+
+### One local context, plus the shared mail queue
+
+| Connection | Used by | Holds |
+| --- | --- | --- |
+| `connLocal` | `PopsContext` | Speed results, plus the `VGigaClearByDay` view the daily report reads |
+| `Emailer` | `EmailerUtility` (package) | The shared mail queue |
+
+`PopsContext` is registered with a **120-second command timeout**, which is deliberate: a commit exists
+fixing a DB timeout on this path.
+
+**There is no local `Emailer` DbContext, and there must not be one again.** Mail is enqueued only through
+`EmailerUtility.EmailerClient.EnqueueAsync`, which uses the `EmailerDataModels` package. A scaffolded
+duplicate of those entities lived in `DataModels/Emailer/` until 2026-09-04 — dead code that nothing
+resolved, and a trap: its `EmailMessage.Subject` still carried `[Unicode(false)]` after the column became
+`nvarchar(512)`, so anyone who started writing mail rows through it would have silently reintroduced the
+non-ASCII mangling described under "Non-ASCII email subjects" below. **Send mail through `EmailerClient` only.**
+
+`Program.cs` still validates `ConnectionStrings:Emailer` at startup even though nothing in this app opens
+that connection — EmailerUtility resolves it itself, and a missing value should fail at startup rather
+than mid-send.
+
+## Configuration
+
+`appsettings.json` is **tracked in git**. Both connection strings use `Integrated Security`, so it holds
+no credentials today — keep it that way. A `UserSecretsId` is present for anything that does need
+protecting.
+
+## Logging
+
+Serilog to console plus `E:\Logs\BEELINK-1\InternetSpeedTest-.log` — 4 MiB roll, daily, **7 retained**.
+
+> **The machine name is hard-coded into that path.** Run this on any machine other than BEELINK-1 and the
+> logs still land under `E:\Logs\BEELINK-1\`. Unlike FinRite and EmailerService, nothing derives the
+> folder from `Environment.MachineName`.
+
+## Deployment
+
+Published to `C:\ScheduledTasks\InternetSpeedTest` and driven by an hourly scheduled task; see README.md
+for the task setup and post-deployment checks. `dotnet publish` adds and overwrites but never deletes, so
+`daily-state.json` survives a deploy — which is what you want, since deleting it causes a duplicate daily
+report.
+
+### The task must use an S4U logon — fixed 2026-10-16
+
+The task `Internet speed test` runs as `BEELINK-1\alann` with **LogonType S4U**, RunLevel Highest. It
+previously used LogonType Password, and it silently stopped after the 13 Oct 22:00 run: from 23:00 every
+hourly trigger failed in Task Scheduler with event 104 (`LogonUserExEx`, `0x8007052E` logon failure), so the
+exe never started and **the app's own logs show nothing** — they just end. Cause: the Microsoft account was
+switched to passwordless, which invalidated the stored password. 59 hourly runs and the 14 Oct daily report
+were lost and cannot be backfilled.
+
+- **Do not re-register the task with a stored password** (`-Password`, or "run whether user is logged on or
+  not" with credentials). A passwordless Microsoft account has none to give, and PIN/Hello does not work.
+- S4U needs no stored secret and works here: SQL Integrated Security to the local instance succeeded under
+  it. It would not authenticate to remote network resources, so revisit if `connLocal` ever moves off-box.
+- Changing the principal needs an **elevated** shell; `Set-ScheduledTask` returns "Access is denied" otherwise.
+  ```powershell
+  $p = New-ScheduledTaskPrincipal -UserId 'BEELINK-1\alann' -LogonType S4U -RunLevel Highest
+  Set-ScheduledTask -TaskName 'Internet speed test' -Principal $p
+  ```
+- **Diagnosing a silent stop:** check `Get-ScheduledTaskInfo` (`NumberOfMissedRuns`, `LastRunTime`) and the
+  `Microsoft-Windows-TaskScheduler/Operational` log for the task name (events 101/104), not the app logs.
+  `LastTaskResult` can still read `0x0` from the last good run while every later trigger fails.
+
+**The preferred mode is a self-contained single-file publish**, matching PcMaintenance. Three things in
+the code exist only to make that mode work, and none of them fail in a framework-dependent publish, so a
+regression is invisible until someone publishes single-file:
+
+- `Program.cs` reads the build-date banner from **`Environment.ProcessPath`**, not `Assembly.Location`,
+  which is an empty string inside a bundle (`InternetSpeedTestLib.BuildConfig` uses
+  `AppContext.BaseDirectory` for the same reason). The IL3000 analyzer catches regressions, but only
+  during a single-file publish.
+- `Program.cs` names the **Serilog sink assemblies explicitly** in a `ConfigurationReaderOptions`;
+  `DependencyContext`-based discovery does not work in a bundle. Adding a sink package means adding its
+  assembly there too.
+- `Program.cs` pins **`.UseContentRoot( AppContext.BaseDirectory )`** so `appsettings.json` is found
+  whatever the working directory. Do not replace this with a JSON file re-added in
+  `ConfigureAppConfiguration` — that lands after the env-var and command-line providers and overrides
+  both.
+
+Verified 2026-09-04: single-file publish is warning-clean and a run from an unrelated working directory
+starts, logs to both sinks, completes a Cloudflare test and exits 0.
+
+Versioning is **manual and inconsistent**: `<Version>1.0.10</Version>` alongside
+`<AssemblyVersion>1.0.0.1206</AssemblyVersion>` and `<FileVersion>2.0.0.0826</FileVersion>`, which
+disagree with each other and with the package version the app logs at startup. The many
+`AssemblyInfo*`/`UpdateAssemblyVersion` properties in the csproj are settings for a Visual Studio
+extension and do nothing on the command line. Sibling projects use MinVer (PcMaintenance) or
+Nerdbank.GitVersioning (EmailerService); this one has neither.
+
+## Non-ASCII email subjects — fixed 2026-09-04
+
+Subjects can now hold any Unicode character. Getting here needed **three** things, and missing any one of
+them looks like the fix silently not working:
+
+1. `Emailer.dbo.EmailMessages.Subject` widened from `varchar(512)` to `nvarchar(512)` (2026-09-03).
+2. `[Unicode(false)]` removed from `EmailMessage.Subject` in `EmailerDataModels` — widening the column
+   achieves nothing while EF still sends `varchar` parameters, and the mapping lives in the entity, not
+   in the calling code.
+3. **The packages actually rebuilt and their versions bumped.** This is what stalled it for a day.
+   `EmailerDataModels` had no package metadata at all, so it packed as the SDK default version `1.0.0`
+   every time. NuGet never re-fetches a version already in the global packages folder, so repacking at
+   `1.0.0` was a no-op and consumers kept the old mapping. It now sets `<Version>` explicitly and shipped
+   as **1.0.1**; `EmailerUtility` went to **0.1.16** and, because it *project-references*
+   `EmailerDataModels`, its nuspec picked up the `1.0.1` dependency automatically.
+
+This project consumes `EmailerUtility` as a package only (no project reference), so it depends entirely
+on that version bump. It now references `EmailerUtility 0.1.16`.
+
+Verified by reflecting over the packaged assemblies: in `EmailerDataModels 1.0.0` the `Subject` property
+carried `UnicodeAttribute`; in `1.0.1` it does not, while `FromAddress` and `Status` still do — those two
+are deliberately non-Unicode.
+
+**If a subject ever comes back mangled again, verify from the data, not the console.** `sqlcmd` prints
+`??` for astral-plane characters whether or not the stored value is intact, which looks exactly like the
+failure:
+
+```sql
+SELECT UNICODE(SUBSTRING(Subject,1,1)) FROM EmailMessages WHERE MessageId = <id>;
+```
+
+`55357` (a UTF-16 high surrogate) means intact; `63` is a literal `?` and means it was mangled.
+
+Note this app's own subject is still plain ASCII (`Daily Internet Speed Test Report for <date>`); the
+end-to-end proof lives in FinRite's registration email. The duplicate `DataModels/Emailer/` model that
+would otherwise reintroduce the bug was deleted the same day.
+
+## Other documentation in this repo
+
+Substantial and worth reading before assuming anything here is complete:
+
+| File | Covers |
+| --- | --- |
+| `README.md` | Fullest account: usage, configuration, build/deploy, scheduled task setup |
+| `WARP.md` | Guidance for a different agent tool; overlaps this file |
+| `.github/copilot-instructions.md` | Ditto, for Copilot |
+
+Three agent-guidance files now exist (`WARP.md`, `copilot-instructions.md`, this one). They will drift.
+If you correct something here that the others also state, correct it there too or delete the stale copy.
