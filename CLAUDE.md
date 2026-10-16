@@ -100,6 +100,28 @@ for the task setup and post-deployment checks. `dotnet publish` adds and overwri
 `daily-state.json` survives a deploy — which is what you want, since deleting it causes a duplicate daily
 report.
 
+### The task must use an S4U logon — fixed 2026-10-16
+
+The task `Internet speed test` runs as `BEELINK-1\alann` with **LogonType S4U**, RunLevel Highest. It
+previously used LogonType Password, and it silently stopped after the 13 Oct 22:00 run: from 23:00 every
+hourly trigger failed in Task Scheduler with event 104 (`LogonUserExEx`, `0x8007052E` logon failure), so the
+exe never started and **the app's own logs show nothing** — they just end. Cause: the Microsoft account was
+switched to passwordless, which invalidated the stored password. 59 hourly runs and the 14 Oct daily report
+were lost and cannot be backfilled.
+
+- **Do not re-register the task with a stored password** (`-Password`, or "run whether user is logged on or
+  not" with credentials). A passwordless Microsoft account has none to give, and PIN/Hello does not work.
+- S4U needs no stored secret and works here: SQL Integrated Security to the local instance succeeded under
+  it. It would not authenticate to remote network resources, so revisit if `connLocal` ever moves off-box.
+- Changing the principal needs an **elevated** shell; `Set-ScheduledTask` returns "Access is denied" otherwise.
+  ```powershell
+  $p = New-ScheduledTaskPrincipal -UserId 'BEELINK-1\alann' -LogonType S4U -RunLevel Highest
+  Set-ScheduledTask -TaskName 'Internet speed test' -Principal $p
+  ```
+- **Diagnosing a silent stop:** check `Get-ScheduledTaskInfo` (`NumberOfMissedRuns`, `LastRunTime`) and the
+  `Microsoft-Windows-TaskScheduler/Operational` log for the task name (events 101/104), not the app logs.
+  `LastTaskResult` can still read `0x0` from the last good run while every later trigger fails.
+
 **The preferred mode is a self-contained single-file publish**, matching PcMaintenance. Three things in
 the code exist only to make that mode work, and none of them fail in a framework-dependent publish, so a
 regression is invisible until someone publishes single-file:
