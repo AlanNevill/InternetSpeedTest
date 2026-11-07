@@ -1,4 +1,4 @@
-﻿using HtmlAgilityPack;
+using HtmlAgilityPack;
 
 using InternetSpeedTest.DataModels;
 
@@ -72,6 +72,9 @@ public static class HelperLib
             ? new StringBuilder()
                 .AppendLine( $"Date: {vGigaClearByDay.SmallDate}" )
                 .AppendLine( $"Number of Samples: {vGigaClearByDay.NumSamples}</br>" )
+                .AppendLine( vGigaClearByDay.NumDownFailed > 0 || vGigaClearByDay.NumUpFailed > 0
+                    ? $"Failed measurements (excluded from averages): download {vGigaClearByDay.NumDownFailed}, upload {vGigaClearByDay.NumUpFailed}</br>"
+                    : string.Empty )
                 .AppendLine( "<table style='border-collapse:collapse;font-family:Segoe UI,Arial;font-size:12px;margin-top:8px;'>" )
                 .AppendLine( "<thead>" )
                 .AppendLine( "<tr style='background:#f0f0f0'>" )

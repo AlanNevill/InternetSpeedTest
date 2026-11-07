@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 using System;
 using System.ComponentModel.DataAnnotations;
@@ -35,4 +35,12 @@ public partial class InternetSpeed
 
     [Unicode( false )]
     public string? ResultJson { get; set; }
+
+    /// <summary>NULL = row predates the status columns (treated as good by the views).</summary>
+    public bool? DownloadOk { get; set; }
+
+    public bool? UploadOk { get; set; }
+
+    /// <summary>Failed upload requests (timeouts, 5xx, exceptions) during the test.</summary>
+    public int? UploadErrors { get; set; }
 }

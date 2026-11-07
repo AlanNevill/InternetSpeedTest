@@ -1,4 +1,4 @@
-﻿# CLAUDE.md
+# CLAUDE.md
 
 Guidance for Claude Code (claude.ai/code) when working in this repository.
 
@@ -62,7 +62,7 @@ is the threshold the report highlights.
 
 | Connection | Used by | Holds |
 | --- | --- | --- |
-| `connLocal` | `PopsContext` | Speed results, plus the `VGigaClearByDay` view the daily report reads |
+| `connLocal` | `PopsContext` | `InternetSpeedTest` database (moved out of `pops` 2026-11-07): speed results, plus the `VGigaClearByDay` view the daily report reads |
 | `Emailer` | `EmailerUtility` (package) | The shared mail queue |
 
 `PopsContext` is registered with a **120-second command timeout**, which is deliberate: a commit exists
@@ -78,6 +78,17 @@ non-ASCII mangling described under "Non-ASCII email subjects" below. **Send mail
 `Program.cs` still validates `ConnectionStrings:Emailer` at startup even though nothing in this app opens
 that connection — EmailerUtility resolves it itself, and a missing value should fail at startup rather
 than mid-send.
+
+### Download and upload are independent measurements
+
+Cloudflare's `/__up` endpoint intermittently stalls and returns 502 (15 of 24 runs on 2026-11-06). Previously one
+stalled request stretched the upload phase to ~65s, and bytes/elapsed stored a falsely low figure as a good result.
+Now `RunSpeedTestAsync` runs each phase separately; upload requests have a 10s timeout and are retried, and the
+phase is hard-stopped 3s after `TestDurationSeconds`. Outcomes are stored on `InternetSpeed`: `DownloadOk`,
+`UploadOk`, `UploadErrors`. A failed phase stores its bandwidth as **NULL**. `NULL` in the `*Ok` columns means a
+legacy row and the views treat it as good. `vGigaClearByDay` averages each direction over its own good samples and
+reports `NumDownFailed`/`NumUpFailed` (shown in the daily email). Rows before 2026-11-07 that were hit by the
+stall are not flagged.
 
 ## Configuration
 

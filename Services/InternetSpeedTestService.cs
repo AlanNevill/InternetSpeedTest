@@ -190,8 +190,12 @@ internal sealed class InternetSpeedTestService(
         var record = new InternetSpeed
         {
             ResultUrl = root.Result.Url,
-            DownLoadBandwidth = root.Download.Bandwidth,
-            UploadBandWidth = root.Upload.Bandwidth,
+            // A failed measurement stores NULL, not a misleading 0 or a partial figure.
+            DownLoadBandwidth = root.Status is { DownloadOk: false } ? null : root.Download.Bandwidth,
+            UploadBandWidth = root.Status is { UploadOk: false } ? null : root.Upload.Bandwidth,
+            DownloadOk = root.Status?.DownloadOk,
+            UploadOk = root.Status?.UploadOk,
+            UploadErrors = root.Status?.UploadErrors,
             ResultDateTime = root.Timestamp.ToLocalTime(),
             PingJitter = root.Ping.Jitter,
             PingLatency = root.Ping.Latency,

@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
@@ -25,4 +25,8 @@ public partial class VGigaClearByDay
 
     [Column( "stdUpMbps" )]
     public double? StdUpMbps { get; set; }
+
+    public int? NumDownFailed { get; set; }
+
+    public int? NumUpFailed { get; set; }
 }
