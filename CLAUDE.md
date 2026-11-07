@@ -203,8 +203,7 @@ Substantial and worth reading before assuming anything here is complete:
 | File | Covers |
 | --- | --- |
 | `README.md` | Fullest account: usage, configuration, build/deploy, scheduled task setup |
-| `WARP.md` | Guidance for a different agent tool; overlaps this file |
-| `.github/copilot-instructions.md` | Ditto, for Copilot |
+| `.github/copilot-instructions.md` | Guidance for GitHub Copilot; overlaps this file |
 
-Three agent-guidance files now exist (`WARP.md`, `copilot-instructions.md`, this one). They will drift.
+Two agent-guidance files now exist (`copilot-instructions.md` and this one). They will drift.
 If you correct something here that the others also state, correct it there too or delete the stale copy.
