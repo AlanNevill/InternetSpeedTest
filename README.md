@@ -62,6 +62,10 @@ The Cloudflare speed test implementation includes advanced optimizations to matc
 - **Connection Warmup**: Pre-establishes connections to overcome TCP slow-start
 - **Time-Based Testing**: Fixed duration (20s) vs. fixed data sizes for consistent measurement
 - **Parallel Upload/Download**: Multiple streams maximize connection utilization
+- **Independent Phases**: Download and upload are measured separately; a failure in one does not discard the other
+- **Resilient Upload**: Each upload request has a 10s timeout and is retried (a connection gives up after 5
+  consecutive failures); the phase is hard-stopped 3s after `TestDurationSeconds`, so one hung request cannot
+  stretch the test and understate the speed
 - **High-Resolution Timing**: Precise measurement excluding connection establishment overhead
 
 ### Configuration Tuning
@@ -86,9 +90,10 @@ With these optimizations, Cloudflare speed tests should:
 - **Dual Provider Support**: Choose between Ookla or Cloudflare testing
 - **Browser-Level Accuracy**: Cloudflare tests match web-based results
 - **Automated Scheduling**: Runs every hour via Windows Task Scheduler
-- **Database Storage**: Results stored in SQL Server with consistent schema
+- **Database Storage**: Results stored in the `InternetSpeedTest` SQL Server database with consistent schema
+- **Per-Measurement Status**: Each run records whether its download and upload were good, so a failed
+  measurement is excluded from the averages instead of being stored as a misleading low speed
 - **Daily Email Reports**: Automated daily summary emails
-- **Drive Space / PC Health Report**: Daily HTML table of local fixed drives (capacity, free GB, % free, LOW flag < 10%)
 - **Comprehensive Logging**: Serilog with file and console output
 - **JSON Processing**: Robust deserialization with error handling
 - **Configurable Performance**: Tunable parameters for optimal results
@@ -99,7 +104,9 @@ The daily job performs:
 
 1. Internet speed summary for the previous day (aggregate stats)
 
-Drives with less than 10% free space are highlighted and marked LOW.
+The report is built by `Services/DailyReportBuilder` from the `vGigaClearByDay` view. Download and upload are
+each averaged over their own good samples only. If any measurement failed that day, the report adds a
+"Failed measurements (excluded from averages)" line with the download and upload counts.
 
 The daily job runs once per local calendar day. If the daily tasks fail (e.g. database timeout), the
 state is not saved so the next hourly run will automatically retry.
@@ -159,19 +166,36 @@ The application is designed to run via Windows Task Scheduler every hour:
 
 ## Database Schema
 
-Results are stored in the `InternetSpeed` table:
+Results are stored in the `dbo.InternetSpeed` table of the **`InternetSpeedTest`** database (moved out of
+`pops` on 2026-11-07; the connection string is `ConnectionStrings:connLocal`):
 
-| Column            | Type     | Description                       |
-| ----------------- | -------- | --------------------------------- |
-| ResultDateTime    | DateTime | Local timestamp of test           |
-| DownLoadBandwidth | bigint   | Download speed (bytes/sec)        |
-| UploadBandWidth   | bigint   | Upload speed (bytes/sec)          |
-| PingLatency       | float    | Average ping latency (ms)         |
-| PingJitter        | float    | Ping jitter (ms)                  |
-| PingHigh          | float    | Highest ping (ms)                 |
-| PingLow           | float    | Lowest ping (ms)                  |
-| ResultUrl         | string   | Speedtest.net URL or "CloudFlare" |
-| ResultJson        | string   | Complete JSON response            |
+| Column            | Type          | Description                                                       |
+| ----------------- | ------------- | ----------------------------------------------------------------- |
+| Id                | int, identity | Primary key                                                       |
+| ResultDateTime    | datetime2     | Local timestamp of test                                           |
+| DownLoadBandwidth | int           | Download speed (bytes/sec). NULL if the download failed           |
+| UploadBandWidth   | int           | Upload speed (bytes/sec). NULL if the upload failed               |
+| PingLatency       | real          | Average ping latency (ms)                                         |
+| PingJitter        | real          | Ping jitter (ms)                                                  |
+| PingHigh          | real          | Highest ping (ms)                                                 |
+| PingLow           | real          | Lowest ping (ms)                                                  |
+| ResultUrl         | varchar(2048) | Speedtest.net URL or Cloudflare description                       |
+| ResultJson        | varchar(max)  | Complete JSON response                                            |
+| DownloadOk        | bit, null     | 1 = download good, 0 = failed. NULL = row predates this column    |
+| UploadOk          | bit, null     | 1 = upload good, 0 = failed or under-read. NULL = legacy row      |
+| UploadErrors      | int, null     | Failed upload requests during the test (including retried ones)   |
+| DayNum, HourOfDay, SmallDate | computed | Derived from `ResultDateTime`; `SmallDate` is `yyyy-MM-dd`  |
+
+A NULL `DownloadOk`/`UploadOk` is treated as good by the views, because older rows cannot be judged. Use
+`UploadOk = 1` with a non-zero `UploadErrors` as an early warning that the upload endpoint is struggling.
+
+Views:
+
+| View              | Purpose                                                                                   |
+| ----------------- | ----------------------------------------------------------------------------------------- |
+| `vGigaClear`      | `InternetSpeed` rows with `Id > 46435` (the GigaClear line)                                |
+| `vBT`             | `InternetSpeed` rows with `Id < 46436` (the earlier BT line); not used by the application  |
+| `vGigaClearByDay` | Per-day count, average and standard deviation of download/upload Mbps over good samples, plus `NumDownFailed` and `NumUpFailed`. Read by the daily report |
 
 ## Logging
 
@@ -218,6 +242,25 @@ If Cloudflare results are still lower than browser-based tests:
    - Verify IPv6 connectivity (check logs for IP addresses used)
    - Test different times of day to rule out ISP throttling
    - Temporarily disable VPN/proxy if enabled
+
+### Upload Test Errors (502 Bad Gateway / timeouts)
+
+Cloudflare's upload endpoint (`/__up`) sometimes stalls or returns 502. Seen from 2026-11-03 and heavily on
+2026-11-06 (15 of 24 runs). Before 1.0.12 a single stalled request stretched the upload to ~65s, and bytes
+divided by that elapsed time was stored as a good, but falsely low, result.
+
+Since 1.0.12:
+
+- Log lines such as `Upload chunk timed out after 10s` or `... response.StatusCode: BadGateway` are
+  warnings, and the request is retried.
+- `Upload completed: ... (N request errors)` shows how many requests failed in that run, and the same count is
+  stored in `UploadErrors`.
+- A run is only marked `UploadOk = 0` (speed stored as NULL) if a connection gave up after 5 consecutive
+  failures, or nothing uploaded at all. The log then shows `Upload test FAILED`.
+- A normal run is about 20-23s for the upload. Anything much longer in the logs predates the fix.
+
+Rows before 2026-11-07 that were hit by the stall are not flagged, except those on 2026-11-07 that were
+identified from the logs and flagged by hand.
 
 ### Ookla vs Cloudflare Differences
 
@@ -347,7 +390,8 @@ The application is deployed to: `C:\ScheduledTasks\InternetSpeedTest`
 
 2. **Verify Configuration**:
    
-   - Ensure `appsettings.json` has correct database connection string
+   - Ensure `appsettings.json` has correct database connection strings: `connLocal` must point at the
+     `InternetSpeedTest` database, and `Emailer` at the shared mail queue
    - Configure speed test provider (Ookla or Cloudflare)
    - Set up email settings for daily reports
 
@@ -362,5 +406,9 @@ The application is deployed to: `C:\ScheduledTasks\InternetSpeedTest`
 
 - **.NET 10.0**: Runtime environment
 - **SQL Server**: Database storage (LocalDB supported)
+- **System.Security.Cryptography.Pkcs 10.0.14**: Direct reference that overrides the vulnerable 9.0.11 pulled
+  in by `Microsoft.Data.SqlClient` 6.1.4 (CVE-2026-84008, CVE-2026-70162); remove once SqlClient requires
+  10.0.13 or later
+- **HtmlAgilityPack**: Used only by `DailyReportBuilder` to produce the plain-text email body
 - **Ookla Speedtest CLI**: Optional, for Ookla testing
 - **Internet Connection**: Required for both test providers
