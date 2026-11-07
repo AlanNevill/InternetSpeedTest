@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -113,6 +113,22 @@ internal class InternetSpeedJSON
 
         [JsonPropertyName("result")]
         public required Result Result { get; set; }
+
+        /// <summary>Per-measurement outcome. Absent for Ookla output.</summary>
+        [JsonPropertyName("status")]
+        public Status? Status { get; set; }
+    }
+
+    public class Status
+    {
+        [JsonPropertyName("downloadOk")]
+        public bool DownloadOk { get; set; }
+
+        [JsonPropertyName("uploadOk")]
+        public bool UploadOk { get; set; }
+
+        [JsonPropertyName("uploadErrors")]
+        public int UploadErrors { get; set; }
     }
 
     public class Server

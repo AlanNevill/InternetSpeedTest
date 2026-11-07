@@ -35,7 +35,7 @@ There is no test project. `TimeProvider` is injected for testability if tests ar
 - **`CloudflareSpeedTestService`** — HTTP-based test using `speed.cloudflare.com`. Parallel connections, warmup phase, time-based measurement. Returns an Ookla-compatible JSON DTO so both paths share the same `PersistAsync()` code. Implements `IDisposable` (owns `HttpClient`).
 
 ### Data models (`DataModels/`)
-- **`PopsContext`** — EF Core `DbContext` for the `pops` database. Contains `InternetSpeed` entity and `VGigaClearByDay` view.
+- **`PopsContext`** — EF Core `DbContext` for the `InternetSpeedTest` database. Contains `InternetSpeed` entity and `VGigaClearByDay` view.
 - **`InternetSpeed`** — maps to the `InternetSpeed` table.
 - **`VGigaClearByDay`** — read-only view used for daily summary emails.
 - **`InternetSpeedJSON`** — deserialization POCOs matching Ookla JSON schema; `CloudflareSpeedTestService` produces the same shape via `ToOoklaCompatibleJson()`.

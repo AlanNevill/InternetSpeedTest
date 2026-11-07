@@ -190,8 +190,12 @@ internal sealed class InternetSpeedTestService(
         var record = new InternetSpeed
         {
             ResultUrl = root.Result.Url,
-            DownLoadBandwidth = root.Download.Bandwidth,
-            UploadBandWidth = root.Upload.Bandwidth,
+            // A failed measurement stores NULL, not a misleading 0 or a partial figure.
+            DownLoadBandwidth = root.Status is { DownloadOk: false } ? null : root.Download.Bandwidth,
+            UploadBandWidth = root.Status is { UploadOk: false } ? null : root.Upload.Bandwidth,
+            DownloadOk = root.Status?.DownloadOk,
+            UploadOk = root.Status?.UploadOk,
+            UploadErrors = root.Status?.UploadErrors,
             ResultDateTime = root.Timestamp.ToLocalTime(),
             PingJitter = root.Ping.Jitter,
             PingLatency = root.Ping.Latency,
@@ -298,13 +302,13 @@ internal sealed class InternetSpeedTestService(
             .FirstOrDefaultAsync( v => v.SmallDate == yesterday.ToString( "yyyy-MM-dd" ), ct );
 
         // format the email body as HTML
-        string formattedEmail = HelperLib.FormatEmailForAcs( vGigaClear4day! );
+        string formattedEmail = DailyReportBuilder.FormatHtml( vGigaClear4day, yesterday );
 
         return await _emailerClient.EnqueueAsync(
             toAddress: "alannevill@gmail.com",
             subject: $"Daily Internet Speed Test Report for {yesterday:yyyy-MM-dd}",
             bodyHtml: formattedEmail,
-            bodyText: HelperLib.HtmlToText( formattedEmail ),
+            bodyText: DailyReportBuilder.ToPlainText( formattedEmail ),
             priority: 1,
            null,
            null,
