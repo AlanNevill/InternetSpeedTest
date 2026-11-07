@@ -103,7 +103,7 @@ internal static class DailyReportBuilder
         if ( removeNodes != null ) foreach ( var n in removeNodes ) n.Remove();
 
         var brs = doc.DocumentNode.SelectNodes( "//br" );
-        if ( brs != null ) foreach ( var br in brs ) br.ParentNode.ReplaceChild( doc.CreateTextNode( "\n" ), br );
+        if ( brs != null ) foreach ( var br in brs ) br.ParentNode?.ReplaceChild( doc.CreateTextNode( "\n" ), br );
 
         var blocks = doc.DocumentNode.SelectNodes( "//p|//div|//li|//h1|//h2|//h3|//h4|//h5|//h6|//tr" );
         if ( blocks != null ) foreach ( var b in blocks ) b.InnerHtml += "\n";
