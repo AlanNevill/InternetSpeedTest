@@ -302,13 +302,13 @@ internal sealed class InternetSpeedTestService(
             .FirstOrDefaultAsync( v => v.SmallDate == yesterday.ToString( "yyyy-MM-dd" ), ct );
 
         // format the email body as HTML
-        string formattedEmail = HelperLib.FormatEmailForAcs( vGigaClear4day! );
+        string formattedEmail = DailyReportBuilder.FormatHtml( vGigaClear4day, yesterday );
 
         return await _emailerClient.EnqueueAsync(
             toAddress: "alannevill@gmail.com",
             subject: $"Daily Internet Speed Test Report for {yesterday:yyyy-MM-dd}",
             bodyHtml: formattedEmail,
-            bodyText: HelperLib.HtmlToText( formattedEmail ),
+            bodyText: DailyReportBuilder.ToPlainText( formattedEmail ),
             priority: 1,
            null,
            null,
