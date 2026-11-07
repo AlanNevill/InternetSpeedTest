@@ -314,7 +314,7 @@ yet, and send yesterday's report a second time.**
 > 1. **`Environment.ProcessPath`, not `Assembly.Location`, for the build-date banner** (`Program.cs`).
 >    `Assembly.Location` returns an empty string inside a single-file bundle, so
 >    `File.GetLastWriteTime` would throw `ArgumentException` on every run — caught by the top-level
->    handler, logged as Fatal and rethrown. `InternetSpeedTestLib.BuildConfig` uses
+>    handler, logged as Fatal and rethrown. Anything else that needs the app folder uses
 >    `AppContext.BaseDirectory` for the same reason; the IL3000 analyzer flags any regression here, but
 >    only during a single-file publish.
 > 2. **Serilog sink assemblies are named explicitly** via `ConfigurationReaderOptions` in `Program.cs`.

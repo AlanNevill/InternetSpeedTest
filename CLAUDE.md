@@ -138,7 +138,7 @@ the code exist only to make that mode work, and none of them fail in a framework
 regression is invisible until someone publishes single-file:
 
 - `Program.cs` reads the build-date banner from **`Environment.ProcessPath`**, not `Assembly.Location`,
-  which is an empty string inside a bundle (`InternetSpeedTestLib.BuildConfig` uses
+  which is an empty string inside a bundle (anything else that needs the app folder uses
   `AppContext.BaseDirectory` for the same reason). The IL3000 analyzer catches regressions, but only
   during a single-file publish.
 - `Program.cs` names the **Serilog sink assemblies explicitly** in a `ConfigurationReaderOptions`;

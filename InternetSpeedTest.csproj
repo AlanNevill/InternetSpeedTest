@@ -69,9 +69,5 @@
     <None Update="appsettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Remove="appsettings-CONFLICT-1.json" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Remove="InternetSpeedTestLib-CONFLICT-1.cs" />
   </ItemGroup>
 </Project>
