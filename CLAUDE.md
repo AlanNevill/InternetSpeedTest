@@ -152,6 +152,14 @@ regression is invisible until someone publishes single-file:
 Verified 2026-09-04: single-file publish is warning-clean and a run from an unrelated working directory
 starts, logs to both sinks, completes a Cloudflare test and exits 0.
 
+Re-verified 2026-11-13 on **net11.0 / C# 13 with EF Core 11.0.0** (version 1.0.15): single-file publish to
+`C:\ScheduledTasks\InternetSpeedTest`, then a run from `%TEMP%` completed download and upload, wrote the
+result to SQL Server and exited 0. That run logged "Daily tasks have already been run today", so the daily
+report path (the `VGigaClearByDay` query under EF Core 11) was **not** exercised; confirm it from the next
+midnight report. When publishing from a Bash shell, give `--output` a forward-slash path
+(`C:/ScheduledTasks/InternetSpeedTest`) or use PowerShell: backslashes are eaten and the output lands in a
+stray folder inside the repo.
+
 Versioning is **manual and inconsistent**: `<Version>1.0.15</Version>` alongside
 `<AssemblyVersion>1.0.0.1206</AssemblyVersion>` and `<FileVersion>2.0.0.0826</FileVersion>`, which
 disagree with each other and with the package version the app logs at startup. The many
