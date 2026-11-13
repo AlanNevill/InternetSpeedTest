@@ -4,7 +4,7 @@ Guidance for Claude Code (claude.ai/code) when working in this repository.
 
 ## What this is
 
-**InternetSpeedTest** is a .NET 10 **console application** — not a service. A Windows Scheduled Task runs
+**InternetSpeedTest** is a .NET 11 **console application** — not a service. A Windows Scheduled Task runs
 it **hourly** from `C:\ScheduledTasks\InternetSpeedTest`; it measures the connection, writes the result to
 SQL Server, and **once a day** emails a summary of the previous day. It runs to completion and exits, so
 there is no host loop, no long-lived state, and every scheduling decision is made from disk.
@@ -152,7 +152,7 @@ regression is invisible until someone publishes single-file:
 Verified 2026-09-04: single-file publish is warning-clean and a run from an unrelated working directory
 starts, logs to both sinks, completes a Cloudflare test and exits 0.
 
-Versioning is **manual and inconsistent**: `<Version>1.0.10</Version>` alongside
+Versioning is **manual and inconsistent**: `<Version>1.0.15</Version>` alongside
 `<AssemblyVersion>1.0.0.1206</AssemblyVersion>` and `<FileVersion>2.0.0.0826</FileVersion>`, which
 disagree with each other and with the package version the app logs at startup. The many
 `AssemblyInfo*`/`UpdateAssemblyVersion` properties in the csproj are settings for a Visual Studio

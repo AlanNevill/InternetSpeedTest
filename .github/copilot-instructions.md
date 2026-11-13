@@ -2,7 +2,7 @@
 
 ## Project Overview
 
-.NET 10 Windows console app that runs internet speed tests hourly via Windows Task Scheduler. Supports two providers: **Ookla** (spawns `speedtest.exe`) and **Cloudflare** (HTTP-based, no external executable). Results are stored in SQL Server, and a daily email report is enqueued via the `EmailerUtility` package.
+.NET 11 Windows console app that runs internet speed tests hourly via Windows Task Scheduler. Supports two providers: **Ookla** (spawns `speedtest.exe`) and **Cloudflare** (HTTP-based, no external executable). Results are stored in SQL Server, and a daily email report is enqueued via the `EmailerUtility` package.
 
 ## Build & Run
 
@@ -61,7 +61,7 @@ using var _ = HelperLib.BeginMethodScope(); // injects CallerMemberName as Metho
 The Serilog output template renders `[{SourceContext:l}].[{MethodName}]` so logs are fully traceable.
 
 ### C# language style
-The codebase targets **C# latest (`preview`) on .NET 10** and actively uses modern features:
+The codebase targets **C# 13 on .NET 11** and actively uses modern features:
 - **Primary constructors** for all service classes (not traditional `_field` assignments).
 - **Collection expressions**: `List<double> items = [];` not `new List<double>()`.
 - **`ArgumentNullException.ThrowIfNullOrWhiteSpace()`** for guard clauses.
