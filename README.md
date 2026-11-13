@@ -330,7 +330,7 @@ yet, and send yesterday's report a second time.**
 
 ### Framework-dependent publish
 
-Smaller output, but the .NET 10 runtime must be installed on the target machine.
+Smaller output, but the .NET 11 runtime must be installed on the target machine.
 
 ```powershell
 # Build in Release configuration
@@ -404,9 +404,9 @@ The application is deployed to: `C:\ScheduledTasks\InternetSpeedTest`
 
 ## Dependencies
 
-- **.NET 10.0**: Runtime environment
+- **.NET 11.0**: Runtime environment
 - **SQL Server**: Database storage (LocalDB supported)
-- **System.Security.Cryptography.Pkcs 10.0.14**: Direct reference that overrides the vulnerable 9.0.11 pulled
+- **System.Security.Cryptography.Pkcs 11.0.0**: Direct reference that overrides the vulnerable 9.0.11 pulled
   in by `Microsoft.Data.SqlClient` 6.1.4 (CVE-2026-84008, CVE-2026-70162); remove once SqlClient requires
   10.0.13 or later
 - **HtmlAgilityPack**: Used only by `DailyReportBuilder` to produce the plain-text email body
