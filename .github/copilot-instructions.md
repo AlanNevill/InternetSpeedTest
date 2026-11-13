@@ -61,7 +61,7 @@ using var _ = HelperLib.BeginMethodScope(); // injects CallerMemberName as Metho
 The Serilog output template renders `[{SourceContext:l}].[{MethodName}]` so logs are fully traceable.
 
 ### C# language style
-The codebase targets **C# 13 on .NET 11** and actively uses modern features:
+The codebase targets **C# 15 on .NET 11** and actively uses modern features:
 - **Primary constructors** for all service classes (not traditional `_field` assignments).
 - **Collection expressions**: `List<double> items = [];` not `new List<double>()`.
 - **`ArgumentNullException.ThrowIfNullOrWhiteSpace()`** for guard clauses.
