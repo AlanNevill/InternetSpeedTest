@@ -57,7 +57,7 @@
     <!-- Override the transitive 9.0.11 pulled in via Microsoft.Data.SqlClient 6.1.4 (CVE-2026-84008, CVE-2026-70162). Remove once SqlClient requires >= 10.0.13. -->
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="11.0.0" />
     <!-- Local NuGet package for EmailerUtility -->
-	  <PackageReference Include="EmailerUtility" Version="0.1.16" />
+	  <PackageReference Include="EmailerUtility" Version="0.2.2" />
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="Results\**" />
