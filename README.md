@@ -278,7 +278,7 @@ machine needs no .NET installation. This mirrors the flow used by the PcMaintena
 Run from the repository root:
 
 ```powershell
-dotnet publish E:\Repos\InternetSpeedTest\InternetSpeedTest.csproj `
+dotnet publish C:\Repos\InternetSpeedTest\InternetSpeedTest.csproj `
   --configuration Release `
   --runtime win-x64 `
   --self-contained true `
